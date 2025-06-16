@@ -30,7 +30,15 @@ const batteryStore = {};
       "--disable-dev-shm-usage",
       "--no-sandbox",
       `--lang=${config.language}`,
-      config.ignoreCertificateErrors && "--ignore-certificate-errors"
+      config.ignoreCertificateErrors && "--ignore-certificate-errors",
+      // Enhanced rendering flags for better e-ink quality
+      "--disable-gpu",
+      "--disable-lcd-text",
+      "--disable-font-subpixel-positioning",
+      "--blink-settings=fontAntialiasing=none",
+      "--force-device-scale-factor=1",
+      "--high-dpi-support=1",
+      "--force-color-profile=srgb"
     ].filter((x) => x),
     defaultViewport: null,
     timeout: config.browserLaunchTimeout,
@@ -269,6 +277,15 @@ async function renderUrlToImageAsync(browser, pageConfig, url, path) {
         body {
           zoom: ${pageConfig.scaling * 100}%;
           overflow: hidden;
+        }
+        html, body {
+          -webkit-font-smoothing: none;
+          font-smooth: never;
+          text-rendering: geometricPrecision;
+        }
+        img, canvas, video {
+          image-rendering: pixelated;
+          image-rendering: crisp-edges;
         }`
     });
 
@@ -294,36 +311,73 @@ async function renderUrlToImageAsync(browser, pageConfig, url, path) {
   }
 }
 
-function convertImageToKindleCompatiblePngAsync(
-  pageConfig,
-  inputPath,
-  outputPath
-) {
-  return new Promise((resolve, reject) => {
-    let gmInstance = gm(inputPath)
-      .options({
-        imageMagick: config.useImageMagick === true
-      })
-      .gamma(pageConfig.removeGamma ? 1.0 / 2.2 : 1.0)
-      .modulate(100, 100 * pageConfig.saturation)
-      .contrast(pageConfig.contrast)
-      .dither(pageConfig.dither)
-      .rotate("white", pageConfig.rotation)
-      .type(pageConfig.colorMode)
-      .level(pageConfig.blackLevel, pageConfig.whiteLevel)
-      .bitdepth(pageConfig.grayscaleDepth);
+/**
+ * Generate a tiny 1×N PNG that contains exactly N gray entries.
+ * Depth 1  → 2 colours, depth 3 → 8 colours, depth 4 → 16, depth 8 → 256.
+ */
+async function ensurePalette(depth) {
+  const steps = 2 ** depth;
+  const palPath = path.join(__dirname, `palette${depth}.png`);
+  try { await fs.access(palPath); return palPath; } catch (_) {}
 
-    // For BMP format, we don't set quality since it's not applicable
-    if (pageConfig.imageFormat !== 'bmp') {
-      gmInstance = gmInstance.quality(100);
+  // build a PPM row, then pipe through ImageMagick to PNG-8
+  const row = Buffer.alloc(steps * 3);
+  for (let i = 0; i < steps; i++) {
+    const v = Math.round((i / (steps - 1)) * 255);
+    row.fill(v, i * 3, i * 3 + 3);
+  }
+  await fs.writeFile(`${palPath}.ppm`,
+    `P6 ${steps} 1 255\n`, "binary");
+  await fs.appendFile(`${palPath}.ppm`, row);
+
+  await new Promise((resolve, reject) => {
+    gm(`${palPath}.ppm`).in("-colors", steps)
+      .in("-type", "Palette").write(palPath, err => err ? reject(err) : resolve());
+  });
+  await fs.unlink(`${palPath}.ppm`);
+  return palPath;
+}
+
+async function convertImageToKindleCompatiblePngAsync(pageCfg, input, output) {
+  return new Promise(async (resolve, reject) => {
+    const depth = Number(pageCfg.grayscaleDepth);      // 1‒4 or 8
+    const pal = depth < 8 ? await ensurePalette(depth) : null;
+    const ditherAlgo = pageCfg.ditherAlgo || "Riemersma";
+    const useDither = pageCfg.dither;
+
+    let gmInstance = gm(input)
+      .options({ imageMagick: config.useImageMagick === true })
+      // ---- linear workflow ----
+      .in("-colorspace", "Gray")
+      .in("-gamma", 0.45455)            // sRGB → linear
+      // optional contrast / saturation tweaks
+      .modulate(100, 100 * pageCfg.saturation)
+      .in("-brightness-contrast", `${pageCfg.contrast}`)
+      .in("-level", `${pageCfg.blackLevel},${pageCfg.whiteLevel}`)
+      .in("-gamma", 2.2)                // back to perceptual
+      .rotate("white", pageCfg.rotation);
+
+    // ---- quantise & dither ----
+    if (depth < 8) {
+      gmInstance = gmInstance
+        .in("-type", "Palette")
+        .in("-dither", useDither ? ditherAlgo : "None")
+        .in("-define", `png:bit-depth=${depth}`)
+        .in("-remap", pal);
+    } else {
+      gmInstance = gmInstance
+        .in("-define", `png:bit-depth=8`);
     }
-    
-    gmInstance.write(outputPath, (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
+
+    // ---- compression + clean ----
+    gmInstance = gmInstance
+      .in("-strip")
+      .in("-define", "png:compression-level=9")
+      .in("-define", "png:compression-filter=5")
+      .in("-define", "png:compression-strategy=1")
+      .in("-define", "png:compression-window=15")
+      .in("-define", "png:compression-memory=8");
+
+    gmInstance.write(output, err => err ? reject(err) : resolve());
   });
 }
