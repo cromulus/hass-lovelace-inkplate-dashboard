@@ -1,5 +1,5 @@
 blueprint:
-  name: Kindle Screensaver Battery Level
+  name: Inkplate Dashboard Battery Level
   domain: automation
   input:
     webhook_id:

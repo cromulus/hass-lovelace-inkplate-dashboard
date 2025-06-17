@@ -107,7 +107,7 @@ function trackRefresh(deviceId, refreshType) {
   }
 
   // Publish refresh increment to MQTT
-  publishToMqtt(`kindle-screensaver/${deviceId}/refresh`, {
+  publishToMqtt(`inkplate-dashboard/${deviceId}/refresh`, {
     count: newCount,
     type: refreshType || 'unknown',
     timestamp: refreshEntry.timestamp
@@ -118,13 +118,13 @@ function trackRefresh(deviceId, refreshType) {
 
 function publishBatteryStatusToMqtt(deviceId, batteryData) {
   // Publish battery level
-  publishToMqtt(`kindle-screensaver/${deviceId}/battery`, {
+  publishToMqtt(`inkplate-dashboard/${deviceId}/battery`, {
     level: batteryData.batteryLevel,
     timestamp: new Date().toISOString()
   });
 
   // Publish charging status
-  publishToMqtt(`kindle-screensaver/${deviceId}/charging`, {
+  publishToMqtt(`inkplate-dashboard/${deviceId}/charging`, {
     status: batteryData.isCharging,
     timestamp: new Date().toISOString()
   });
@@ -365,9 +365,9 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
     console.log(`  • MQTT publishing for battery data and refresh tracking`);
     console.log(`  • Per-device refresh count tracking (up to ${MAX_REFRESH_HISTORY} history entries)`);
     console.log(`MQTT Topics:`);
-    console.log(`  kindle-screensaver/{deviceId}/battery   - Battery level updates`);
-    console.log(`  kindle-screensaver/{deviceId}/charging  - Charging status updates`);
-    console.log(`  kindle-screensaver/{deviceId}/refresh   - Refresh count increments`);
+    console.log(`  inkplate-dashboard/{deviceId}/battery   - Battery level updates`);
+    console.log(`  inkplate-dashboard/{deviceId}/charging  - Charging status updates`);
+    console.log(`  inkplate-dashboard/{deviceId}/refresh   - Refresh count increments`);
   });
 })();
 

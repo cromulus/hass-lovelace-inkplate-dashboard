@@ -1,26 +1,27 @@
-# Home Assistant Lovelace Kindle Screensaver
+# Home Assistant Lovelace Inkplate Dashboard
 
-![ci](https://github.com/sibbl/hass-lovelace-kindle-screensaver/workflows/ci/badge.svg)
+![ci](https://github.com/cromulus/hass-lovelace-inkplate-dashboard/workflows/ci/badge.svg)
 
-This tool can be used to display a Lovelace view of your Home Assistant instance on a [jailbroken](https://www.mobileread.com/forums/showthread.php?t=320564) Kindle device. It regularly takes a screenshot which can be polled and used as a screensaver image of the [online screensaver plugin](https://www.mobileread.com/forums/showthread.php?t=236104).
+This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device like a [jailbroken](https://www.mobileread.com/forums/showthread.php?t=320564) Kindle or an Inkplate. It regularly takes a screenshot which can be polled and used as a screensaver image of the [online screensaver plugin](https://www.mobileread.com/forums/showthread.php?t=236104).
 
-If you're looking for a way to render your own HTML, see my other project [hass-kindle-screensaver](https://github.com/sibbl/hass-kindle-screensaver) which renders a React page and can be adapted to your specific needs.
+## Credits
+This project is a fork of the amazing [hass-lovelace-kindle-screensaver](https://github.com/sibbl/hass-lovelace-kindle-screensaver) by [sibbl](https://github.com/sibbl). A big thank you for all the hard work and inspiration!
 
 ## Sample image
 
-![Sample image](https://raw.githubusercontent.com/sibbl/hass-lovelace-kindle-screensaver/main/assets/sample.png)
+![Sample image](https://raw.githubusercontent.com/cromulus/hass-lovelace-inkplate-dashboard/main/assets/sample.png)
 
 ## Features
 
-This tool regularly takes a screenshot of a specific page of your home assistant setup. It converts it into the PNG/JPEG grayscale format which Kindles can display.
+This tool regularly takes a screenshot of a specific page of your home assistant setup. It converts it into the PNG/JPEG grayscale format which e-ink displays can display.
 
 Using my [own Kindle 4 setup guide](https://github.com/sibbl/hass-lovelace-kindle-4) or the [online screensaver extension](https://www.mobileread.com/forums/showthread.php?t=236104) for any jailbroken Kindle, this image can be regularly polled from your device so you can use it as a weather station, a display for next public transport departures etc.
 
 ## Usage
 
-You may simple set up the [sibbl/hass-lovelace-kindle-screensaver](https://hub.docker.com/r/sibbl/hass-lovelace-kindle-screensaver) docker container. The container exposes a single port (5000 by default).
+You may simple set up the [cromulus/hass-lovelace-inkplate-dashboard](https://hub.docker.com/r/cromulus/hass-lovelace-inkplate-dashboard) docker container. The container exposes a single port (5000 by default).
 
-Another way is to use Hassio Addons where you have to add this repository or click [here](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fsibbl%2Fhass-lovelace-kindle-screensaver). Then Reload and you should see options to the Lovelace Kindle Screensaver Addon
+Another way is to use Hassio Addons where you have to add this repository or click [here](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fcromulus%2Fhass-lovelace-inkplate-dashboard). Then Reload and you should see options to the Lovelace Inkplate Dashboard Addon
 
 I recommend simply using the `docker-compose.yml` file inside this repository, configure everything in there and run `docker-compose up -d` within the file's directory. This will pull the docker image, create the container with all environment variables from the file and run it in detached mode (using `-d`, so it continues running even when you exit your shell/bash/ssh connection).
 Additionally, you can then later use `docker-compose pull && docker-compose up -d` to update the image in case you want to update it.
@@ -80,7 +81,7 @@ The webhook setting is to let HA keep track of the battery level of the Kindle, 
 1. Create two new helper entities in Home Assistant:
    1. a new `input_number` entity, e.g. `input_number.kindle_battery_level`
    1. a new `input_boolean` entity, e.g. `input_boolean.kindle_battery_charging`
-1. Add an automation to set the values of these entities using a webhook: [![import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsibbl%2Fhass-lovelace-kindle-screensaver%2Fblob%2Fmain%2Fbattery_sensor_blueprint.yaml)
+1. Add an automation to set the values of these entities using a webhook: [![import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fcromulus%2Fhass-lovelace-inkplate-dashboard%2Fblob%2Fmain%2Fbattery_sensor_blueprint.yaml)
 1. Define this application's environment variable `HA_BATTERY_WEBHOOK` to the name of the webhook defined in the previous step. For multiple devices, `HA_BATTERY_WEBHOOK_2`, ... `HA_BATTERY_WEBHOOK_n` is supported as well.
 
 #### Patch for [Kindle Online Screensaver extension](https://www.mobileread.com/forums/showthread.php?t=236104)

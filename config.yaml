@@ -1,15 +1,15 @@
-name: Lovelace Kindle Screensaver
+name: Lovelace Inkplate Dashboard
 version: 1.0.14
-slug: kindle-screensaver
-description: This tool can be used to display a Lovelace view of your Home Assistant instance on a jailbroken Kindle device. It regularly takes a screenshot which can be polled and used as a screensaver image of the online screensaver plugin.
+slug: inkplate-dashboard
+description: This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device. It regularly takes a screenshot which can be polled and used as a screensaver image.
 startup: application
 boot: auto
 arch:
   - aarch64
   - amd64
   - armv7
-url: 'https://github.com/sibbl/hass-lovelace-kindle-screensaver'
-image: 'sibbl/hass-lovelace-kindle-screensaver-ha-addon-{arch}'
+url: 'https://github.com/cromulus/hass-lovelace-inkplate-dashboard'
+image: 'cromulus/hass-lovelace-inkplate-dashboard-{arch}'
 webui: 'http://[HOST]:[PORT:5000]'
 ingress: true
 ingress_port: 5000
@@ -48,33 +48,83 @@ options:
   WHITE_LEVEL: '100%'
   ADDITIONAL_ENV_VARS: []
 schema:
-  HA_BASE_URL: "url"
-  HA_SCREENSHOT_URL: "str"
-  HA_ACCESS_TOKEN: "password"
-  LANGUAGE: "str?"
-  CRON_JOB: "str?"
-  RENDERING_TIMEOUT: "int?"
-  RENDERING_DELAY: "int?"
-  RENDERING_SCREEN_HEIGHT: "int?"
-  RENDERING_SCREEN_WIDTH: "int?"
-  BROWSER_LAUNCH_TIMEOUT: "int?"
-  ROTATION: "int?"
-  SCALING: "float?"
-  GRAYSCALE_DEPTH: "int?"
-  IMAGE_FORMAT: "list(png|jpeg|bmp)?"
-  COLOR_MODE: "list(GrayScale|TrueColor)?"
-  REMOVE_GAMMA: "bool?"
-  PREFERS_COLOR_SCHEME: "list(light|dark)?"
-  SATURATION: "int?"
-  CONTRAST: "int?"
-  SHARPEN: "str?"
-  DITHER: "bool?"
-  DITHER_ALGO: "list(Riemersma|FloydSteinberg|None)?"
-  BLACK_LEVEL: "str?"
-  WHITE_LEVEL: "str?"
-  ADDITIONAL_ENV_VARS:
-    - name: match(^[A-Z0-9_]+$)
-      value: str
+  - name: HA_BASE_URL
+    type: url
+    description: "Base URL of your Home Assistant instance."
+  - name: HA_SCREENSHOT_URL
+    type: str
+    description: "Relative URL to take the screenshot of."
+  - name: HA_ACCESS_TOKEN
+    type: password
+    description: "Long-lived access token from Home Assistant."
+  - name: LANGUAGE
+    type: str?
+    description: "Language to set in the browser and Home Assistant."
+  - name: CRON_JOB
+    type: str?
+    description: "Cron job expression for how often to take a screenshot."
+  - name: RENDERING_TIMEOUT
+    type: int?
+    description: "Timeout in milliseconds for the rendering process."
+  - name: RENDERING_DELAY
+    type: int?
+    description: "Delay in milliseconds between navigating to the page and taking the screenshot."
+  - name: RENDERING_SCREEN_HEIGHT
+    type: int?
+    description: "Height of your e-ink screen resolution."
+  - name: RENDERING_SCREEN_WIDTH
+    type: int?
+    description: "Width of your e-ink screen resolution."
+  - name: BROWSER_LAUNCH_TIMEOUT
+    type: int?
+    description: "Timeout in milliseconds for launching the browser."
+  - name: ROTATION
+    type: int?
+    description: "Rotation of the image in degrees (e.g., 90, 180, 270)."
+  - name: SCALING
+    type: float?
+    description: "Scaling factor (e.g., 1.5 to zoom in)."
+  - name: GRAYSCALE_DEPTH
+    type: int?
+    description: "Grayscale bit depth (e.g., 8 for 8-bit, which is 256 shades of gray)."
+  - name: IMAGE_FORMAT
+    type: "list(png|jpeg|bmp)?"
+    description: "Format for the generated images."
+  - name: COLOR_MODE
+    type: "list(GrayScale|TrueColor)?"
+    description: "Color mode to use for the image."
+  - name: REMOVE_GAMMA
+    type: bool?
+    description: "Remove gamma correction from the image."
+  - name: PREFERS_COLOR_SCHEME
+    type: "list(light|dark)?"
+    description: "Enable browser dark mode."
+  - name: SATURATION
+    type: int?
+    description: "Saturation level multiplier."
+  - name: CONTRAST
+    type: int?
+    description: "Contrast level multiplier."
+  - name: SHARPEN
+    type: str?
+    description: "Sharpening parameters for the image."
+  - name: DITHER
+    type: bool?
+    description: "Apply a dither to the images."
+  - name: DITHER_ALGO
+    type: "list(Riemersma|FloydSteinberg|None)?"
+    description: "Dithering algorithm to use."
+  - name: BLACK_LEVEL
+    type: str?
+    description: "Black point as a percentage (e.g., 30%)."
+  - name: WHITE_LEVEL
+    type: str?
+    description: "White point as a percentage (e.g., 90%)."
+  - name: ADDITIONAL_ENV_VARS
+    type:
+      - name: str
+        value: str
+    description: "Additional environment variables to set."
 services: ["mqtt"]
 environment:
   output_path: "/output/cover"
