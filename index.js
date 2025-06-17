@@ -6,7 +6,7 @@ const { promises: fs } = require("fs");
 const fsExtra = require("fs-extra");
 const puppeteer = require("puppeteer");
 const { CronJob } = require("cron");
-const gm = require("gm");
+const { execa } = require("execa");
 const express = require("express");
 const mqtt = require("mqtt");
 
@@ -489,54 +489,63 @@ async function ensurePalette(depth) {
     `P6 ${steps} 1 255\n`, "binary");
   await fs.appendFile(`${palPath}.ppm`, row);
 
-  await new Promise((resolve, reject) => {
-    gm(`${palPath}.ppm`).in("-colors", steps)
-      .in("-type", "Palette").write(palPath, err => err ? reject(err) : resolve());
-  });
+  // Use ImageMagick directly via execa
+  const magickCommand = config.useImageMagick ? 'magick' : 'convert';
+  await execa(magickCommand, [
+    `${palPath}.ppm`,
+    '-colors', steps.toString(),
+    '-type', 'Palette',
+    palPath
+  ]);
   await fs.unlink(`${palPath}.ppm`);
   return palPath;
 }
 
 async function convertImageToKindleCompatiblePngAsync(pageCfg, input, output) {
-  return new Promise(async (resolve, reject) => {
-    const depth = Number(pageCfg.grayscaleDepth);      // 1‒4 or 8
-    const pal = depth < 8 ? await ensurePalette(depth) : null;
-    const ditherAlgo = pageCfg.ditherAlgo || "Riemersma";
-    const useDither = pageCfg.dither;
+  const depth = Number(pageCfg.grayscaleDepth);      // 1‒4 or 8
+  const pal = depth < 8 ? await ensurePalette(depth) : null;
+  const ditherAlgo = pageCfg.ditherAlgo || "Riemersma";
+  const useDither = pageCfg.dither;
 
-    let gmInstance = gm(input)
-      .options({ imageMagick: config.useImageMagick === true })
-      // ---- linear workflow ----
-      .in("-colorspace", "Gray")
-      .in("-gamma", 0.45455)            // sRGB → linear
-      // optional contrast / saturation tweaks
-      .modulate(100, 100 * pageCfg.saturation)
-      .in("-brightness-contrast", `${pageCfg.contrast}`)
-      .in("-level", `${pageCfg.blackLevel},${pageCfg.whiteLevel}`)
-      .in("-gamma", 2.2)                // back to perceptual
-      .rotate("white", pageCfg.rotation);
+  // Build ImageMagick command arguments
+  const magickCommand = config.useImageMagick ? 'magick' : 'convert';
+  const args = [
+    input,
+    // ---- linear workflow ----
+    '-colorspace', 'Gray',
+    '-gamma', '0.45455',            // sRGB → linear
+    // optional contrast / saturation tweaks
+    '-modulate', `100,${100 * pageCfg.saturation}`,
+    '-brightness-contrast', `${pageCfg.contrast}`,
+    '-level', `${pageCfg.blackLevel},${pageCfg.whiteLevel}`,
+    '-gamma', '2.2',                // back to perceptual
+    '-rotate', pageCfg.rotation.toString(),
+    '-background', 'white'
+  ];
 
-    // ---- quantise & dither ----
-    if (depth < 8) {
-      gmInstance = gmInstance
-        .in("-type", "Palette")
-        .in("-dither", useDither ? ditherAlgo : "None")
-        .in("-define", `png:bit-depth=${depth}`)
-        .in("-remap", pal);
-    } else {
-      gmInstance = gmInstance
-        .in("-define", `png:bit-depth=8`);
-    }
+  // ---- quantise & dither ----
+  if (depth < 8) {
+    args.push(
+      '-type', 'Palette',
+      '-dither', useDither ? ditherAlgo : 'None',
+      '-define', `png:bit-depth=${depth}`,
+      '-remap', pal
+    );
+  } else {
+    args.push('-define', `png:bit-depth=8`);
+  }
 
-    // ---- compression + clean ----
-    gmInstance = gmInstance
-      .in("-strip")
-      .in("-define", "png:compression-level=9")
-      .in("-define", "png:compression-filter=5")
-      .in("-define", "png:compression-strategy=1")
-      .in("-define", "png:compression-window=15")
-      .in("-define", "png:compression-memory=8");
+  // ---- compression + clean ----
+  args.push(
+    '-strip',
+    '-define', 'png:compression-level=9',
+    '-define', 'png:compression-filter=5',
+    '-define', 'png:compression-strategy=1',
+    '-define', 'png:compression-window=15',
+    '-define', 'png:compression-memory=8',
+    output
+  );
 
-    gmInstance.write(output, err => err ? reject(err) : resolve());
-  });
+  // Execute ImageMagick command
+  await execa(magickCommand, args);
 }
