@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - 'main'
-      - 'real-webserver'
-
 jobs:
   build:
     runs-on: ubuntu-latest
