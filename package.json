@@ -3,6 +3,10 @@
   "version": "1.1.0",
   "description": "",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cromulus/hass-lovelace-inkplate-dashboard"
+  },
   "scripts": {
     "start": "node index.js"
   },
