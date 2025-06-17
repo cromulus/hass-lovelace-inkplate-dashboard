@@ -7,9 +7,130 @@ const fsExtra = require("fs-extra");
 const puppeteer = require("puppeteer");
 const { CronJob } = require("cron");
 const gm = require("gm");
+const express = require("express");
+const mqtt = require("mqtt");
 
-// keep state of current battery level and whether the device is charging
-const batteryStore = {};
+// Simple in-memory request log for debugging (keep last 100 requests)
+const requestLog = [];
+const MAX_LOG_ENTRIES = 100;
+
+// Track refresh counts per device
+const deviceRefreshCounts = new Map();
+const deviceRefreshHistory = new Map();
+const MAX_REFRESH_HISTORY = 1000;
+
+// MQTT client setup
+let mqttClient = null;
+
+function setupMqttClient() {
+  const mqttOptions = {
+    host: process.env.MQTT_HOST || 'core-mosquitto',
+    port: parseInt(process.env.MQTT_PORT) || 1883,
+    username: process.env.MQTT_USER || 'homeassistant',
+    password: process.env.MQTT_PASSWORD,
+    protocol: process.env.MQTT_PROTOCOL === '5.0' ? 'mqtt' : 'mqtt',
+    protocolVersion: process.env.MQTT_PROTOCOL === '5.0' ? 5 : 4
+  };
+
+  mqttClient = mqtt.connect(mqttOptions);
+
+  mqttClient.on('connect', () => {
+    console.log('Connected to MQTT broker');
+  });
+
+  mqttClient.on('error', (error) => {
+    console.error('MQTT connection error:', error);
+  });
+
+  mqttClient.on('reconnect', () => {
+    console.log('Reconnecting to MQTT broker...');
+  });
+}
+
+function publishToMqtt(topic, payload, retain = true) {
+  if (mqttClient && mqttClient.connected) {
+    mqttClient.publish(topic, JSON.stringify(payload), { retain }, (error) => {
+      if (error) {
+        console.error(`Failed to publish to MQTT topic ${topic}:`, error);
+      }
+    });
+  } else {
+    console.warn(`MQTT client not connected. Failed to publish to topic: ${topic}`);
+  }
+}
+
+function logRequest(deviceId, ipAddress, pageNumber, batteryLevel, isCharging, refreshType) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    deviceId,
+    ipAddress,
+    pageNumber,
+    batteryLevel,
+    isCharging,
+    refreshType: refreshType || 'unknown'
+  };
+  
+  requestLog.push(entry);
+  if (requestLog.length > MAX_LOG_ENTRIES) {
+    requestLog.shift(); // Remove oldest entry
+  }
+  
+  // Log to console (appears in HA addon logs)
+  console.log(`${entry.timestamp}: Device ${deviceId} (${ipAddress}) requested page ${pageNumber}${
+    batteryLevel !== null ? ` [battery: ${batteryLevel}%${isCharging !== null ? (isCharging ? ' charging' : ' not charging') : ''}]` : ''
+  } [refresh: ${refreshType || 'unknown'}]`);
+}
+
+function trackRefresh(deviceId, refreshType) {
+  // Increment total refresh count
+  const currentCount = deviceRefreshCounts.get(deviceId) || 0;
+  const newCount = currentCount + 1;
+  deviceRefreshCounts.set(deviceId, newCount);
+
+  // Add to refresh history
+  const refreshEntry = {
+    timestamp: new Date().toISOString(),
+    type: refreshType || 'unknown',
+    count: newCount
+  };
+
+  if (!deviceRefreshHistory.has(deviceId)) {
+    deviceRefreshHistory.set(deviceId, []);
+  }
+  
+  const history = deviceRefreshHistory.get(deviceId);
+  history.push(refreshEntry);
+  
+  // Keep history within limits
+  if (history.length > MAX_REFRESH_HISTORY) {
+    history.shift();
+  }
+
+  // Publish refresh increment to MQTT
+  publishToMqtt(`kindle-screensaver/${deviceId}/refresh`, {
+    count: newCount,
+    type: refreshType || 'unknown',
+    timestamp: refreshEntry.timestamp
+  });
+
+  console.log(`Device ${deviceId}: Refresh count now ${newCount} (${refreshType || 'unknown'})`);
+}
+
+function publishBatteryStatusToMqtt(deviceId, batteryData) {
+  // Publish battery level
+  publishToMqtt(`kindle-screensaver/${deviceId}/battery`, {
+    level: batteryData.batteryLevel,
+    timestamp: new Date().toISOString()
+  });
+
+  // Publish charging status
+  publishToMqtt(`kindle-screensaver/${deviceId}/charging`, {
+    status: batteryData.isCharging,
+    timestamp: new Date().toISOString()
+  });
+
+  console.log(`Published battery data for device ${deviceId}: ${batteryData.batteryLevel}% ${batteryData.isCharging ? 'charging' : 'not charging'}`);
+}
 
 (async () => {
   if (config.pages.length === 0) {
@@ -23,6 +144,9 @@ const batteryStore = {};
       );
     }
   }
+
+  // Setup MQTT client
+  setupMqttClient();
 
   console.log("Starting browser...");
   let browser = await puppeteer.launch({
@@ -85,93 +209,170 @@ const batteryStore = {};
     });
   }
 
-  const httpServer = http.createServer(async (request, response) => {
-    // Parse the request
-    const url = new URL(request.url, `http://${request.headers.host}`);
-    // Check the page number
-    const pageNumberStr = url.pathname;
-    // and get the battery level, if any
-    // (see https://github.com/sibbl/hass-lovelace-kindle-screensaver/README.md for patch to generate it on Kindle)
-    const batteryLevel = parseInt(url.searchParams.get("batteryLevel"));
-    const isCharging = url.searchParams.get("isCharging");
-    const pageNumber =
-      pageNumberStr === "/" ? 1 : parseInt(pageNumberStr.substr(1));
-    if (
-      isFinite(pageNumber) === false ||
-      pageNumber > config.pages.length ||
-      pageNumber < 1
-    ) {
-      console.log(`Invalid request: ${request.url} for page ${pageNumber}`);
-      response.writeHead(400);
-      response.end("Invalid request");
-      return;
+  // Helper function to get device identifier
+  function getDeviceId(req) {
+    return req.query.id || req.query.deviceId || req.ip || req.connection.remoteAddress;
+  }
+
+  // Setup Express app
+  const app = express();
+  app.use(express.json());
+  app.set('trust proxy', true); // Trust reverse proxy for correct IP
+
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      pages: config.pages.length,
+      mqtt_connected: mqttClient && mqttClient.connected,
+      total_devices: deviceRefreshCounts.size
+    });
+  });
+
+  // Debug endpoint to view refresh statistics
+  app.get('/debug/refreshes', (req, res) => {
+    const stats = {};
+    for (const [deviceId, count] of deviceRefreshCounts.entries()) {
+      stats[deviceId] = {
+        total_refreshes: count,
+        recent_history: deviceRefreshHistory.get(deviceId)?.slice(-10) || []
+      };
     }
+    res.json(stats);
+  });
+
+  // Debug endpoint to view recent requests
+  app.get('/debug/requests', (req, res) => {
+    res.json({
+      recent_requests: requestLog.slice(-50),
+      total_logged: requestLog.length
+    });
+  });
+
+  // Main image serving function with proper HTTP semantics
+  async function serveImage(req, res) {
+    // Parse page number from URL (support both /1 and /1.png)
+    const pageNumberMatch = req.params.pageNumber?.match(/^(\d+)(?:\.\w+)?$/) || 
+                           req.params[0]?.match(/^(\d+)(?:\.\w+)?$/);
+    const pageNumber = pageNumberMatch ? parseInt(pageNumberMatch[1]) : 1;
+    
+    if (isNaN(pageNumber) || pageNumber < 1 || pageNumber > config.pages.length) {
+      return res.status(400).json({ error: 'Invalid page number' });
+    }
+
     try {
-      // Log when the page was accessed
-      const n = new Date();
-      console.log(`${n.toISOString()}: Image ${pageNumber} was accessed`);
+      const deviceId = getDeviceId(req);
+      const ipAddress = req.ip;
+      
+      // Extract battery info from query params
+      const batteryLevel = parseInt(req.query.battery || req.query.batteryLevel);
+      const isChargingParam = req.query.charging || req.query.isCharging;
+      const isCharging = ['true', '1', 'Yes', 'yes'].includes(isChargingParam) ? true : 
+                        ['false', '0', 'No', 'no'].includes(isChargingParam) ? false : null;
+
+      // Extract refresh type from query params
+      const refreshType = req.query.refresh || 'unknown'; // 'full', 'partial', or 'unknown'
+
+      // Log the request
+      logRequest(
+        deviceId, 
+        ipAddress, 
+        pageNumber, 
+        !isNaN(batteryLevel) ? batteryLevel : null, 
+        isCharging,
+        refreshType
+      );
+
+      // Track refresh count
+      trackRefresh(deviceId, refreshType);
+
+      // Publish battery data to MQTT if provided
+      if (!isNaN(batteryLevel)) {
+        publishBatteryStatusToMqtt(deviceId, {
+          batteryLevel,
+          isCharging: isCharging || false
+        });
+      }
 
       const pageIndex = pageNumber - 1;
       const configPage = config.pages[pageIndex];
-
-      const outputPathWithExtension = configPage.outputPath + "." + configPage.imageFormat
-      const data = await fs.readFile(outputPathWithExtension);
+      const outputPathWithExtension = configPage.outputPath + "." + configPage.imageFormat;
+      
       const stat = await fs.stat(outputPathWithExtension);
+      const lastModified = new Date(stat.mtime);
+      const etag = `"${stat.mtime}-${stat.size}"`;
 
-      const lastModifiedTime = new Date(stat.mtime).toUTCString();
+      // Check if client has current version (proper HTTP caching)
+      const clientEtag = req.headers['if-none-match'];
+      const clientModified = req.headers['if-modified-since'];
+      
+      if (clientEtag === etag || (clientModified && new Date(clientModified) >= lastModified)) {
+        return res.status(304).end();
+      }
 
-      response.writeHead(200, {
-        "Content-Type": "image/" + configPage.imageFormat,
-        "Content-Length": Buffer.byteLength(data),
-        "Last-Modified": lastModifiedTime
+      const data = await fs.readFile(outputPathWithExtension);
+      
+      res.set({
+        'Content-Type': `image/${configPage.imageFormat}`,
+        'Last-Modified': lastModified.toUTCString(),
+        'ETag': etag,
+        'Cache-Control': 'public, max-age=60',
+        'Content-Length': data.length
       });
-      response.end(data);
-
-      let pageBatteryStore = batteryStore[pageIndex];
-      if (!pageBatteryStore) {
-        pageBatteryStore = batteryStore[pageIndex] = {
-          batteryLevel: null,
-          isCharging: false
-        };
-      }
-      if (!isNaN(batteryLevel) && batteryLevel >= 0 && batteryLevel <= 100) {
-        if (batteryLevel !== pageBatteryStore.batteryLevel) {
-          pageBatteryStore.batteryLevel = batteryLevel;
-          console.log(
-            `New battery level: ${batteryLevel} for page ${pageNumber}`
-          );
-        }
-
-        if (
-          (isCharging === "Yes" || isCharging === "1") &&
-          pageBatteryStore.isCharging !== true) {
-          pageBatteryStore.isCharging = true;
-          console.log(`Battery started charging for page ${pageNumber}`);
-        } else if (
-          (isCharging === "No" || isCharging === "0") &&
-          pageBatteryStore.isCharging !== false
-        ) {
-          console.log(`Battery stopped charging for page ${pageNumber}`);
-          pageBatteryStore.isCharging = false;
-        }
-      }
+      
+      res.send(data);
     } catch (e) {
-      console.error(e);
-      response.writeHead(404);
-      response.end("Image not found");
+      console.error('Error serving image:', e);
+      res.status(404).send('Image not found');
     }
+  }
+
+  // Image serving routes - support multiple formats
+  app.get('/:pageNumber', (req, res) => {
+    if (req.params.pageNumber === 'favicon.ico') {
+      return res.status(404).end();
+    }
+    serveImage(req, res);
+  });
+  
+  app.get('/image/:pageNumber', serveImage);
+  
+  app.get('/', (req, res) => {
+    req.params.pageNumber = '1';
+    serveImage(req, res);
   });
 
   const port = config.port || 5000;
-  httpServer.listen(port, () => {
-    console.log(`Server is running at ${port}`);
+  app.listen(port, () => {
+    console.log(`Express server running on port ${port}`);
+    console.log(`Endpoints:`);
+    console.log(`  GET  /health                     - Health check with MQTT status`);
+    console.log(`  GET  /:pageNumber[.ext]          - Serve image (supports /1, /1.png, etc.)`);
+    console.log(`  GET  /image/:pageNumber[.ext]    - Serve image`);
+    console.log(`  GET  /                           - Serve page 1`);
+    console.log(`  GET  /debug/refreshes            - View refresh statistics per device`);
+    console.log(`  GET  /debug/requests             - View recent request log`);
+    console.log(`Query parameters:`);
+    console.log(`  ?id=deviceName                   - Device identifier (fallback: IP address)`);
+    console.log(`  ?battery=85                      - Battery level (0-100, publishes to MQTT)`);
+    console.log(`  ?charging=true                   - Charging status (true/false/1/0/Yes/No)`);
+    console.log(`  ?refresh=full                    - Refresh type (full/partial, tracked in MQTT)`);
+    console.log(`Features:`);
+    console.log(`  • Proper HTTP caching (ETags, Last-Modified, 304 responses)`);
+    console.log(`  • Request logging (last ${MAX_LOG_ENTRIES} requests in memory)`);
+    console.log(`  • MQTT publishing for battery data and refresh tracking`);
+    console.log(`  • Per-device refresh count tracking (up to ${MAX_REFRESH_HISTORY} history entries)`);
+    console.log(`MQTT Topics:`);
+    console.log(`  kindle-screensaver/{deviceId}/battery   - Battery level updates`);
+    console.log(`  kindle-screensaver/{deviceId}/charging  - Charging status updates`);
+    console.log(`  kindle-screensaver/{deviceId}/refresh   - Refresh count increments`);
   });
 })();
 
 async function renderAndConvertAsync(browser) {
   for (let pageIndex = 0; pageIndex < config.pages.length; pageIndex++) {
     const pageConfig = config.pages[pageIndex];
-    const pageBatteryStore = batteryStore[pageIndex];
 
     const url = `${config.baseUrl}${pageConfig.screenShotUrl}`;
 
@@ -192,49 +393,7 @@ async function renderAndConvertAsync(browser) {
 
     fs.unlink(tempPath);
     console.log(`Finished ${url}`);
-
-    if (
-      pageBatteryStore &&
-      pageBatteryStore.batteryLevel !== null &&
-      pageConfig.batteryWebHook
-    ) {
-      sendBatteryLevelToHomeAssistant(
-        pageIndex,
-        pageBatteryStore,
-        pageConfig.batteryWebHook
-      );
-    }
   }
-}
-
-function sendBatteryLevelToHomeAssistant(
-  pageIndex,
-  batteryStore,
-  batteryWebHook
-) {
-  const batteryStatus = JSON.stringify(batteryStore);
-  const options = {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(batteryStatus)
-    },
-    rejectUnauthorized: !config.ignoreCertificateErrors
-  };
-  const url = `${config.baseUrl}/api/webhook/${batteryWebHook}`;
-  const httpLib = url.toLowerCase().startsWith("https") ? https : http;
-  const req = httpLib.request(url, options, (res) => {
-    if (res.statusCode !== 200) {
-      console.error(
-        `Update device ${pageIndex} at ${url} status ${res.statusCode}: ${res.statusMessage}`
-      );
-    }
-  });
-  req.on("error", (e) => {
-    console.error(`Update ${pageIndex} at ${url} error: ${e.message}`);
-  });
-  req.write(batteryStatus);
-  req.end();
 }
 
 async function renderUrlToImageAsync(browser, pageConfig, url, path) {
