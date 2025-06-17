@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+ * A bunch of changes to how we launch Chrome to make screenshots crisper
+ * Updated image procssing to use a modern library.
+ * Added more image processing capabilities to make crisper images.
+ * Added an express webserver, battery status is now a GET param and exposed over MQTT
+
 ## 1.0.14
 
 ### Added
