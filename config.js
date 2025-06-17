@@ -30,6 +30,7 @@ function getPagesConfig() {
       blackLevel: getEnvironmentVariable("BLACK_LEVEL", suffix) || "0%",
       whiteLevel: getEnvironmentVariable("WHITE_LEVEL", suffix) || "100%",
       dither: getEnvironmentVariable("DITHER", suffix) === "true" || false,
+      ditherAlgo: getEnvironmentVariable("DITHER_ALGO", suffix) || "Riemersma",
       colorMode: getEnvironmentVariable("COLOR_MODE", suffix) || "GrayScale",
       prefersColorScheme: getEnvironmentVariable("PREFERS_COLOR_SCHEME", suffix) || "light",
       rotation: getEnvironmentVariable("ROTATION", suffix) || 0,
@@ -37,6 +38,7 @@ function getPagesConfig() {
       batteryWebHook: getEnvironmentVariable("HA_BATTERY_WEBHOOK", suffix) || null,
       saturation: getEnvironmentVariable("SATURATION", suffix) || 1,
       contrast: getEnvironmentVariable("CONTRAST", suffix) || 1,
+      sharpen: getEnvironmentVariable("SHARPEN", suffix) || null,
     });
   }
   return pages;

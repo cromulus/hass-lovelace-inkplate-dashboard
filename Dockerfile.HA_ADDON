@@ -25,9 +25,12 @@ COPY *.js ./
 
 RUN npm ci
 
-
 # Copy data for add-on
 COPY run.sh /
 RUN chmod a+x /run.sh
+
+# Copy the font configuration to disable anti-aliasing
+COPY fonts.conf /etc/fonts/fonts.conf
+ENV FONTCONFIG_FILE /etc/fonts/fonts.conf
 
 CMD [ "/run.sh" ]

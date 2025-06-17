@@ -159,6 +159,7 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
       "--disable-gpu",
       "--disable-lcd-text",
       "--disable-font-subpixel-positioning",
+      "--font-render-hinting=none",
       "--blink-settings=fontAntialiasing=none",
       "--force-device-scale-factor=1",
       "--high-dpi-support=1",
@@ -519,9 +520,16 @@ async function convertImageToKindleCompatiblePngAsync(pageCfg, input, output) {
     '-brightness-contrast', `${pageCfg.contrast}`,
     '-level', `${pageCfg.blackLevel},${pageCfg.whiteLevel}`,
     '-gamma', '2.2',                // back to perceptual
-    '-rotate', pageCfg.rotation.toString(),
-    '-background', 'white'
   ];
+
+  // ---- sharpening ----
+  if (pageCfg.sharpen) {
+    args.push('-unsharp', pageCfg.sharpen);
+  }
+
+  // ---- rotation ----
+  args.push('-rotate', pageCfg.rotation.toString());
+  args.push('-background', 'white');
 
   // ---- quantise & dither ----
   if (depth < 8) {

@@ -41,6 +41,11 @@ options:
   PREFERS_COLOR_SCHEME: 'light'
   SATURATION: 1
   CONTRAST: 1
+  SHARPEN: ''
+  DITHER: true
+  DITHER_ALGO: 'Riemersma'
+  BLACK_LEVEL: '0%'
+  WHITE_LEVEL: '100%'
   ADDITIONAL_ENV_VARS: []
 schema:
   HA_BASE_URL: "url"
@@ -62,6 +67,11 @@ schema:
   PREFERS_COLOR_SCHEME: "list(light|dark)?"
   SATURATION: "int?"
   CONTRAST: "int?"
+  SHARPEN: "str?"
+  DITHER: "bool?"
+  DITHER_ALGO: "list(Riemersma|FloydSteinberg|None)?"
+  BLACK_LEVEL: "str?"
+  WHITE_LEVEL: "str?"
   ADDITIONAL_ENV_VARS:
     - name: match(^[A-Z0-9_]+$)
       value: str
