@@ -47,6 +47,11 @@ options:
   BLACK_LEVEL: '0%'
   WHITE_LEVEL: '100%'
   ADDITIONAL_ENV_VARS: []
+  MQTT_HOST: 'core-mosquitto'
+  MQTT_PORT: 1883
+  MQTT_USER: 'homeassistant'
+  MQTT_PASSWORD: ''
+  MQTT_PROTOCOL: '4'
 schema:
   - name: HA_BASE_URL
     type: url
@@ -125,6 +130,21 @@ schema:
       - name: str
         value: str
     description: "Additional environment variables to set."
+  - name: MQTT_HOST
+    type: str?
+    description: "MQTT broker hostname."
+  - name: MQTT_PORT
+    type: int?
+    description: "MQTT broker port."
+  - name: MQTT_USER
+    type: str?
+    description: "MQTT username."
+  - name: MQTT_PASSWORD
+    type: password?
+    description: "MQTT password."
+  - name: MQTT_PROTOCOL
+    type: "list(4|5.0)?"
+    description: "MQTT protocol version."
 services: ["mqtt"]
 environment:
   output_path: "/output/cover"

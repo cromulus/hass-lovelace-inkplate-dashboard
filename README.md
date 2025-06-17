@@ -2,7 +2,7 @@
 
 ![ci](https://github.com/cromulus/hass-lovelace-inkplate-dashboard/workflows/ci/badge.svg)
 
-This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device like a [jailbroken](https://www.mobileread.com/forums/showthread.php?t=320564) Kindle or an Inkplate. It regularly takes a screenshot which can be polled and used as a screensaver image of the [online screensaver plugin](https://www.mobileread.com/forums/showthread.php?t=236104).
+This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device like a [jailbroken](https://www.mobileread.com/forums/showthread.php?t=320564) Kindle or an Inkplate. It regularly takes a screenshot which can be polled and displayed.
 
 ## Credits
 This project is a fork of the amazing [hass-lovelace-kindle-screensaver](https://github.com/sibbl/hass-lovelace-kindle-screensaver) by [sibbl](https://github.com/sibbl). A big thank you for all the hard work and inspiration!

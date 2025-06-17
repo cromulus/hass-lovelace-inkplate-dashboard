@@ -11,6 +11,9 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
+    ttf-dejavu \
+    ttf-liberation \
+    fontconfig \
     imagemagick \
     nodejs \
     npm
@@ -20,7 +23,6 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     USE_IMAGE_MAGICK=true
 
 COPY package*.json ./
-COPY local.conf /etc/fonts/local.conf
 COPY *.js ./
 
 RUN npm ci
@@ -29,8 +31,10 @@ RUN npm ci
 COPY run.sh /
 RUN chmod a+x /run.sh
 
-# Copy the font configuration to disable anti-aliasing
-COPY fonts.conf /etc/fonts/fonts.conf
-ENV FONTCONFIG_FILE /etc/fonts/fonts.conf
+# Copy the font configuration optimized for e-ink displays
+COPY fonts/fonts.conf /etc/fonts/conf.d/99-eink-fonts.conf
+
+# Rebuild font cache
+RUN fc-cache -fv
 
 CMD [ "/run.sh" ]
