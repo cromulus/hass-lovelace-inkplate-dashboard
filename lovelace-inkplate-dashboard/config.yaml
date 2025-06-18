@@ -74,5 +74,6 @@ schema:
       value: str
 services:
   - mqtt:need
+startup: services
 environment:
   output_path: "/output/cover"

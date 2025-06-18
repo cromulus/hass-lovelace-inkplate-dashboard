@@ -40,6 +40,12 @@ function setupMqttClient() {
     MQTT_SSL: process.env.MQTT_SSL || 'undefined'
   });
   
+  // Debug: Log actual raw values to see if they're literal 'null' strings
+  console.log('Raw MQTT environment values:');
+  console.log(`MQTT_HOST type: ${typeof process.env.MQTT_HOST}, value: "${process.env.MQTT_HOST}"`);
+  console.log(`MQTT_USER type: ${typeof process.env.MQTT_USER}, value: "${process.env.MQTT_USER}"`);
+  console.log(`MQTT_PASSWORD type: ${typeof process.env.MQTT_PASSWORD}, length: ${process.env.MQTT_PASSWORD?.length || 0}`);
+  
   // Debug: Log ALL environment variables that might be MQTT-related
   const mqttEnvVars = Object.keys(process.env).filter(key => 
     key.includes('MQTT') || key.includes('mqtt') || key.includes('BROKER') || key.includes('broker')
