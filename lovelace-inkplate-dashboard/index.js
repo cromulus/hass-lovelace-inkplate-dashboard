@@ -26,52 +26,88 @@ function setupMqttClient() {
   // Check if MQTT service is available (provided by Home Assistant Supervisor)
   // Try both MQTT_USERNAME and MQTT_USER as different versions may use different names
   const mqttUsername = process.env.MQTT_USERNAME || process.env.MQTT_USER;
+  const mqttHost = process.env.MQTT_HOST;
+  const mqttPassword = process.env.MQTT_PASSWORD;
   
-  if (!process.env.MQTT_HOST || !mqttUsername || !process.env.MQTT_PASSWORD) {
+  // Debug: Log all MQTT environment variables
+  console.log('MQTT Environment Variables:', {
+    MQTT_HOST: process.env.MQTT_HOST || 'undefined',
+    MQTT_PORT: process.env.MQTT_PORT || 'undefined', 
+    MQTT_USERNAME: process.env.MQTT_USERNAME || 'undefined',
+    MQTT_USER: process.env.MQTT_USER || 'undefined',
+    MQTT_PASSWORD: process.env.MQTT_PASSWORD ? '[SET]' : 'undefined',
+    MQTT_PROTOCOL: process.env.MQTT_PROTOCOL || 'undefined',
+    MQTT_SSL: process.env.MQTT_SSL || 'undefined'
+  });
+  
+  // Check for null, undefined, or empty string values
+  if (!mqttHost || mqttHost === 'null' || !mqttUsername || mqttUsername === 'null' || !mqttPassword || mqttPassword === 'null') {
     console.log('MQTT service not available from Supervisor, running without MQTT support');
-    console.log('Available MQTT env vars:', {
-      host: !!process.env.MQTT_HOST,
-      username: !!process.env.MQTT_USERNAME,
-      user: !!process.env.MQTT_USER,
-      password: !!process.env.MQTT_PASSWORD,
-      port: !!process.env.MQTT_PORT,
-      protocol: !!process.env.MQTT_PROTOCOL,
-      ssl: !!process.env.MQTT_SSL
-    });
+    console.log('This is normal if:');
+    console.log('  - Running outside Home Assistant OS/Supervised');
+    console.log('  - No MQTT broker add-on is installed');
+    console.log('  - Add-on does not have "services: [mqtt:need]" in config.yaml');
     return;
   }
 
   const mqttOptions = {
-    host: process.env.MQTT_HOST,
+    host: mqttHost,
     port: parseInt(process.env.MQTT_PORT) || 1883,
     username: mqttUsername,
-    password: process.env.MQTT_PASSWORD,
+    password: mqttPassword,
     protocol: 'mqtt',
     protocolVersion: process.env.MQTT_PROTOCOL === '5' ? 5 : 4,
     connectTimeout: 30000,
     reconnectPeriod: 5000,
-    keepalive: 60
+    keepalive: 60,
+    // Limit reconnection attempts to prevent infinite loops
+    reconnectPeriod: 10000, // Try every 10 seconds instead of 5
+    connectTimeout: 30000,
+    // Stop trying to reconnect after some failures
+    reconnectionBackOff: 2000
   };
 
   console.log(`Attempting MQTT connection to ${mqttOptions.host}:${mqttOptions.port} as user '${mqttOptions.username}'`);
 
   mqttClient = mqtt.connect(mqttOptions);
 
+  let reconnectAttempts = 0;
+  const maxReconnectAttempts = 5;
+
   mqttClient.on('connect', () => {
     console.log('Connected to MQTT broker');
+    reconnectAttempts = 0; // Reset counter on successful connection
   });
 
   mqttClient.on('error', (error) => {
-    console.error('MQTT connection error:', error);
+    console.error('MQTT connection error:', error.message);
+    
+    // If we get ENOTFOUND or similar DNS errors, stop trying
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      reconnectAttempts++;
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        console.log(`Failed to connect to MQTT after ${maxReconnectAttempts} attempts. Disabling MQTT functionality.`);
+        mqttClient.end(true); // Force close and stop reconnecting
+        mqttClient = null;
+        return;
+      }
+    }
     console.log('Continuing without MQTT support...');
   });
 
   mqttClient.on('reconnect', () => {
-    console.log('Reconnecting to MQTT broker...');
+    reconnectAttempts++;
+    if (reconnectAttempts <= maxReconnectAttempts) {
+      console.log(`Reconnecting to MQTT broker... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+    }
   });
 
   mqttClient.on('offline', () => {
     console.log('MQTT client went offline');
+  });
+
+  mqttClient.on('close', () => {
+    console.log('MQTT connection closed');
   });
 }
 
@@ -82,6 +118,9 @@ function publishToMqtt(topic, payload, retain = true) {
         console.error(`Failed to publish to MQTT topic ${topic}:`, error);
       }
     });
+  } else if (mqttClient === null) {
+    // MQTT was disabled due to connection failures, silently skip
+    return;
   } else {
     console.warn(`MQTT client not connected. Failed to publish to topic: ${topic}`);
   }

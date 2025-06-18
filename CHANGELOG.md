@@ -7,6 +7,8 @@
 * **Browser Stability**: Simplified browser launch arguments to prevent navigation context issues with newer Puppeteer versions
 * **Error Handling**: Enhanced error handling for authentication failures with graceful fallback and retry mechanism
 * **Rendering Optimization**: Simplified CSS styling to reduce potential rendering conflicts and improve stability
+* **MQTT Connection Loop**: Fixed infinite MQTT reconnection loop when environment variables are undefined/null by adding proper validation and connection attempt limits
+* **MQTT Debugging**: Added comprehensive MQTT environment variable logging to help diagnose Services API issues
 
 ## 1.1.6
 
