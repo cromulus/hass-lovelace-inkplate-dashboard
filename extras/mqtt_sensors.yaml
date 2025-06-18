@@ -1,0 +1,74 @@
+# MQTT Sensors for Inkplate Dashboard
+# Add this to your Home Assistant configuration.yaml under the 'mqtt:' section
+# 
+# Example usage:
+# mqtt:
+#   sensor: !include mqtt_sensors.yaml
+#
+# Replace 'your_device_id' with your actual device ID (e.g., 'inkplate_kitchen', 'eink_display_1', etc.)
+# The device ID is determined by the ?id= parameter in your device's HTTP requests
+
+# Battery Level Sensor
+- name: "Inkplate Dashboard Battery"
+  unique_id: "inkplate_dashboard_battery_your_device_id"
+  state_topic: "inkplate-dashboard/your_device_id/battery"
+  value_template: "{{ value_json.level }}"
+  unit_of_measurement: "%"
+  device_class: "battery"
+  state_class: "measurement"
+  json_attributes_topic: "inkplate-dashboard/your_device_id/battery"
+  json_attributes_template: "{{ value_json | tojson }}"
+  availability:
+    - topic: "inkplate-dashboard/your_device_id/battery"
+  device:
+    identifiers: ["inkplate_dashboard_your_device_id"]
+    name: "Inkplate Dashboard (Your Device)"
+    model: "E-ink Display"
+    manufacturer: "Inkplate Dashboard"
+
+# Charging Status Sensor
+- name: "Inkplate Dashboard Charging"
+  unique_id: "inkplate_dashboard_charging_your_device_id"
+  state_topic: "inkplate-dashboard/your_device_id/charging"
+  value_template: "{{ 'ON' if value_json.status else 'OFF' }}"
+  device_class: "battery_charging"
+  json_attributes_topic: "inkplate-dashboard/your_device_id/charging"
+  json_attributes_template: "{{ value_json | tojson }}"
+  availability:
+    - topic: "inkplate-dashboard/your_device_id/charging"
+  device:
+    identifiers: ["inkplate_dashboard_your_device_id"]
+    name: "Inkplate Dashboard (Your Device)"
+    model: "E-ink Display"
+    manufacturer: "Inkplate Dashboard"
+
+# Refresh Counter Sensor
+- name: "Inkplate Dashboard Refresh Count"
+  unique_id: "inkplate_dashboard_refresh_count_your_device_id"
+  state_topic: "inkplate-dashboard/your_device_id/refresh"
+  value_template: "{{ value_json.count }}"
+  unit_of_measurement: "refreshes"
+  state_class: "total_increasing"
+  json_attributes_topic: "inkplate-dashboard/your_device_id/refresh"
+  json_attributes_template: "{{ value_json | tojson }}"
+  availability:
+    - topic: "inkplate-dashboard/your_device_id/refresh"
+  device:
+    identifiers: ["inkplate_dashboard_your_device_id"]
+    name: "Inkplate Dashboard (Your Device)"
+    model: "E-ink Display"
+    manufacturer: "Inkplate Dashboard"
+
+# Example for multiple devices - just duplicate the above sensors with different device IDs:
+# 
+# Kitchen Display:
+# - name: "Kitchen Inkplate Battery"
+#   unique_id: "inkplate_dashboard_battery_kitchen"
+#   state_topic: "inkplate-dashboard/kitchen/battery"
+#   # ... rest of configuration
+#
+# Bedroom Display:
+# - name: "Bedroom Inkplate Battery"
+#   unique_id: "inkplate_dashboard_battery_bedroom"  
+#   state_topic: "inkplate-dashboard/bedroom/battery"
+#   # ... rest of configuration 

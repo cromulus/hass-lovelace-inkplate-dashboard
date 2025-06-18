@@ -1,7 +1,25 @@
-node_modules/
+# Node.js dependencies
+development/node_modules/
+inkplate-dashboard/node_modules/
+
+# IDE files
 .vscode/
-config.*.js
-docker-compose.*.yml
-cover.png
 .devcontainer/
+
+# Local configuration files
+config.*.js
+development/config.*.js
+
+# Docker Compose overrides
+docker-compose.*.yml
+
+# Generated images
+cover.png
+output/
+
+# System files
 .DS_Store
+
+# Development artifacts
+development/.env
+development/temp/
