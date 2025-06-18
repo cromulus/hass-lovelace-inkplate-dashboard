@@ -4,6 +4,27 @@
 
 This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device like a [jailbroken](https://www.mobileread.com/forums/showthread.php?t=320564) Kindle or an Inkplate. It regularly takes a screenshot which can be polled and displayed.
 
+## Repository Structure
+
+```
+├── inkplate-dashboard/          # 📱 Home Assistant Addon
+│   ├── config.yaml             # Addon configuration & schema
+│   ├── Dockerfile              # Container build instructions  
+│   ├── run.sh                  # Startup script
+│   └── fonts/                  # Font configuration for e-ink
+├── development/                # 🔧 Development & Testing
+│   ├── index.js                # Main application logic
+│   ├── config.js               # Configuration handling
+│   ├── package.json            # Node.js dependencies
+│   └── Dockerfile              # Development container
+├── extras/                     # 🎁 Additional Resources
+│   ├── mqtt_sensors.yaml       # MQTT sensor configurations
+│   ├── battery_sensor_blueprint.yaml # HA automation blueprint
+│   ├── lovelace-eink-theme.yml # E-ink optimized theme
+│   └── README.md               # Usage instructions
+└── assets/                     # 📸 Documentation images
+```
+
 ## Credits
 This project is a fork of the amazing [hass-lovelace-kindle-screensaver](https://github.com/sibbl/hass-lovelace-kindle-screensaver) by [sibbl](https://github.com/sibbl). A big thank you for all the hard work and inspiration!
 
@@ -15,107 +36,213 @@ This project is a fork of the amazing [hass-lovelace-kindle-screensaver](https:/
 
 This tool regularly takes a screenshot of a specific page of your home assistant setup. It converts it into the PNG/JPEG grayscale format which e-ink displays can display.
 
-Using my [own Kindle 4 setup guide](https://github.com/sibbl/hass-lovelace-kindle-4) or the [online screensaver extension](https://www.mobileread.com/forums/showthread.php?t=236104) for any jailbroken Kindle, this image can be regularly polled from your device so you can use it as a weather station, a display for next public transport departures etc.
+**Key Features:**
+- 🖼️ **Multi-page support** - Render multiple dashboard pages
+- 🔋 **Battery monitoring** - Track device battery levels via MQTT  
+- 🎨 **E-ink optimization** - Custom fonts and color processing
+- ⚡ **MQTT integration** - Publish device status and metrics
+- 🎯 **Multiple output formats** - PNG, JPEG with customizable processing
+- 🔄 **Flexible scheduling** - Configurable refresh intervals
 
-## Usage
+## Quick Start
 
-You may simple set up the [cromulus/hass-lovelace-inkplate-dashboard](https://hub.docker.com/r/cromulus/hass-lovelace-inkplate-dashboard) docker container. The container exposes a single port (5000 by default).
+### Option 1: Home Assistant Add-on (Recommended)
 
-Another way is to use Hassio Addons where you have to add this repository or click [here](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fcromulus%2Fhass-lovelace-inkplate-dashboard). Then Reload and you should see options to the Lovelace Inkplate Dashboard Addon
+1. **Add the repository** to Home Assistant:
+   - Go to **Settings → Add-ons → Add-on Store**
+   - Click the **⋮** menu → **Repositories**
+   - Add: `https://github.com/cromulus/hass-lovelace-inkplate-dashboard`
 
-I recommend simply using the `docker-compose.yml` file inside this repository, configure everything in there and run `docker-compose up -d` within the file's directory. This will pull the docker image, create the container with all environment variables from the file and run it in detached mode (using `-d`, so it continues running even when you exit your shell/bash/ssh connection).
-Additionally, you can then later use `docker-compose pull && docker-compose up -d` to update the image in case you want to update it.
+2. **Install the addon**: Look for "Lovelace Inkplate Dashboard" and install it
 
-You can then access the image by doing a simple GET request to e.g. `http://localhost:5000/` to receive the most recent image (might take up to 60s after the first run).
+3. **Configure**: Set your Home Assistant URL, access token, and display preferences
 
-Home Assistant related stuff:
+4. **Start**: The addon will begin taking screenshots on your configured schedule
 
-| Env Var                   | Sample value                          | Required | Array?\* | Description                                                                                                                                                                                          |
-|---------------------------|---------------------------------------| -------- | -------- |------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `HA_BASE_URL`             | `https://your-hass-instance.com:8123` | yes      | no       | Base URL of your home assistant instance                                                                                                                                                             |
-| `HA_SCREENSHOT_URL`       | `/lovelace/screensaver?kiosk`         | yes      | yes      | Relative URL to take screenshot of (btw, the `?kiosk` parameter hides the nav bar using the [kiosk mode](https://github.com/NemesisRE/kiosk-mode) project)                                           |
-| `HA_ACCESS_TOKEN`         | `eyJ0...`                             | yes      | no       | Long-lived access token from Home Assistant, see [official docs](https://developers.home-assistant.io/docs/auth_api/#long-lived-access-token)                                                        |
-| `HA_BATTERY_WEBHOOK`      | `set_kindle_battery_level`            | no       | yes      | Webhook definied in HA which receives `batteryLevel` (number between 0-100) and `isCharging` (boolean) as JSON                                                                                       |
-| `LANGUAGE`                | `en`                                  | no       | no       | Language to set in browser and home assistant                                                                                                                                                        |
-| `PREFERS_COLOR_SCHEME`    | `light`                               | no       | no       | Enable browser dark mode, use `light` or `dark`.                                                                                                                                                     |
-| `CRON_JOB`                | `* * * * *`                           | no       | no       | How often to take screenshot                                                                                                                                                                         |
-| `RENDERING_TIMEOUT`       | `10000`                               | no       | no       | Timeout of render process, helpful if your HASS instance might be down                                                                                                                               |
-| `RENDERING_DELAY`         | `0`                                   | no       | yes      | how long to wait between navigating to the page and taking the screenshot, in milliseconds                                                                                                           |
-| `RENDERING_SCREEN_HEIGHT` | `800`                                 | no       | yes      | Height of your kindle screen resolution                                                                                                                                                              |
-| `RENDERING_SCREEN_WIDTH`  | `600`                                 | no       | yes      | Width of your kindle screen resolution                                                                                                                                                               |
-| `BROWSER_LAUNCH_TIMEOUT`  | `30000`                               | no       | no       | Timeout for browser launch, helpful if your HASS instance is slow                                                                                                                                    |
-| `ROTATION`                | `0`                                   | no       | yes      | Rotation of image in degrees, e.g. use 90 or 270 to render in landscape                                                                                                                              |
-| `SCALING`                 | `1`                                   | no       | yes      | Scaling factor, e.g. `1.5` to zoom in or `0.75` to zoom out                                                                                                                                          |
-| `GRAYSCALE_DEPTH`         | `8`                                   | no       | yes      | Grayscale bit depth your kindle supports                                                                                                                                                             |
-| `COLOR_MODE`              | `GrayScale`                           | no       | yes      | ColorMode to use, ex: `GrayScale`, or `TrueColor`.                                                                                                                                                   |
-| `IMAGE_FORMAT`            | `png`                                 | no       | no       | Format for the generated images. Acceptable values are `png` or `jpeg`.                                                                                                                              |
-| `DITHER`                  | `false`                               | no       | yes      | Apply a dither to the images.                                                                                                                                                                        |
-| `REMOVE_GAMMA`            | `true`                                | no       | no       | Remove gamma correction from image. Computer images are normally gamma corrected since monitors expect gamma corrected data, however some E-Ink displays expect images not to have gamma correction. |
-| SATURATION              | 2                                   | no       | no       | Saturation level multiplier, e.g. 2 doubles the saturation |
-| CONTRAST                | 2                                   | no       | no       | Contrast level multiplier, e.g. 2 doubles the contrast |
-| BLACK_LEVEL             | 30%                                 | no       | no       | Black point as percentage of MaxRGB, i.e. crushes blacks below specified level |
-| WHITE_LEVEL             | 90%                                 | no       | no       | White point as percentage of MaxRGB, i.e. crushes whites above specified level |
+### Option 2: Docker Container
 
-**\* Array** means that you can set `HA_SCREENSHOT_URL_2`, `HA_SCREENSHOT_URL_3`, ... `HA_SCREENSHOT_URL_n` to render multiple pages within the same instance.
-If you use `HA_SCREENSHOT_URL_2`, you can also set `ROTATION_2=180`. If there is no `ROTATION_n` set, then `ROTATION` will be used as a fallback.
-You can access these additional images by making GET Requests `http://localhost:5000/2`, `http://localhost:5000/3` etc.
+```bash
+docker run -d \
+  --name inkplate-dashboard \
+  -p 5000:5000 \
+  -e HA_BASE_URL="https://your-hass-instance.com:8123" \
+  -e HA_SCREENSHOT_URL="/lovelace/dashboard?kiosk" \
+  -e HA_ACCESS_TOKEN="your-long-lived-access-token" \
+  cromulus/hass-lovelace-inkplate-dashboard
+```
 
-To make us of the array feature in the Home Assistant Add-On, you may use `ADDITIONAL_ENV_VARS`. It expects a format like this to set any additional environment variable:
+### Option 3: Docker Compose
+
+Create a `docker-compose.yml`:
 
 ```yaml
-- name: "HA_SCREENSHOT_URL_2"
-  value: "/lovelace/second-page"
-- name: "ROTATION_2"
-  value: "180"
-- name: "HA_SCREENSHOT_URL_3"
-  value: "/lovelace/third-page"
+version: '3.8'
+services:
+  inkplate-dashboard:
+    image: cromulus/hass-lovelace-inkplate-dashboard
+    ports:
+      - "5000:5000"
+    environment:
+      HA_BASE_URL: "https://your-hass-instance.com:8123"
+      HA_SCREENSHOT_URL: "/lovelace/dashboard?kiosk"
+      HA_ACCESS_TOKEN: "your-long-lived-access-token"
+      RENDERING_SCREEN_WIDTH: 600
+      RENDERING_SCREEN_HEIGHT: 800
+    restart: unless-stopped
 ```
 
-To avoid problems, please ensure that the name only contains upper case letters, numbers and underscores. The value field must be a string, so it's better to always put your value (especially numbers) into a `"string"` .
+## Accessing Images
 
-### How to set up the webhook
+Once running, access your rendered images:
+- **Main image**: `http://localhost:5000/`
+- **Additional pages**: `http://localhost:5000/2`, `http://localhost:5000/3`, etc.
+- **Device-specific**: `http://localhost:5000/?id=kitchen` (for device tracking)
 
-The webhook setting is to let HA keep track of the battery level of the Kindle, so it can warn you about charging it. You need to do the following:
+## Configuration Reference
 
-1. See below for a patch needed to make the Kindle Online Screensaver plugin send the battery level to this application.
-1. Create two new helper entities in Home Assistant:
-   1. a new `input_number` entity, e.g. `input_number.kindle_battery_level`
-   1. a new `input_boolean` entity, e.g. `input_boolean.kindle_battery_charging`
-1. Add an automation to set the values of these entities using a webhook: [![import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fcromulus%2Fhass-lovelace-inkplate-dashboard%2Fblob%2Fmain%2Fbattery_sensor_blueprint.yaml)
-1. Define this application's environment variable `HA_BATTERY_WEBHOOK` to the name of the webhook defined in the previous step. For multiple devices, `HA_BATTERY_WEBHOOK_2`, ... `HA_BATTERY_WEBHOOK_n` is supported as well.
+### Core Settings
 
-#### Patch for [Kindle Online Screensaver extension](https://www.mobileread.com/forums/showthread.php?t=236104)
+| Environment Variable      | Example Value                         | Required | Description                                                                                      |
+|--------------------------|---------------------------------------| -------- |--------------------------------------------------------------------------------------------------|
+| `HA_BASE_URL`            | `https://your-hass-instance.com:8123` | ✅       | Base URL of your Home Assistant instance                                                         |
+| `HA_SCREENSHOT_URL`      | `/lovelace/screensaver?kiosk`         | ✅       | Relative URL to screenshot (supports multiple pages with `_2`, `_3` suffix)                      |
+| `HA_ACCESS_TOKEN`        | `eyJ0...`                             | ✅       | [Long-lived access token](https://developers.home-assistant.io/docs/auth_api/#long-lived-access-token) |
+| `LANGUAGE`               | `en`                                  | ❌       | Browser and Home Assistant language                                                              |
+| `CRON_JOB`               | `* * * * *`                           | ❌       | Screenshot schedule (cron format)                                                                |
 
-Modify the following lines in the Kindle Online Screensaver extension's `bin/update.sh` (absolute path on device should be `/mnt/us/extensions/onlinescreensaver/bin/update.sh`):
+### Display Settings
 
-```diff
-...
-if [ 1 -eq $CONNECTED ]; then
--     if wget -q $IMAGE_URI -O $TMPFILE; then
-+     batteryLevel=`/usr/bin/powerd_test -s | awk -F: '/Battery Level/ {print substr($2, 0, length($2)-1) - 0}'`
-+     isCharging=`/usr/bin/powerd_test -s | awk -F: '/Charging/ {print substr($2,2,length($2))}'`
-+     if wget -q "$IMAGE_URI?batteryLevel=$batteryLevel&isCharging=$isCharging" -O $TMPFILE; then
-        mv $TMPFILE $SCREENSAVERFILE
-        logger "Screen saver image updated"
-...
+| Environment Variable      | Example Value | Description                                                    |
+|--------------------------|---------------|----------------------------------------------------------------|
+| `RENDERING_SCREEN_WIDTH`  | `600`         | Display width in pixels                                        |
+| `RENDERING_SCREEN_HEIGHT` | `800`         | Display height in pixels                                       |
+| `ROTATION`               | `90`          | Image rotation in degrees (0, 90, 180, 270)                   |
+| `SCALING`                | `1.5`         | Zoom factor (1.0 = normal, 1.5 = 150% zoom)                   |
+| `PREFERS_COLOR_SCHEME`   | `light`       | Browser color scheme (`light` or `dark`)                       |
+
+### Image Processing
+
+| Environment Variable | Example Value | Description                                                |
+|---------------------|---------------|------------------------------------------------------------|
+| `IMAGE_FORMAT`      | `png`         | Output format (`png` or `jpeg`)                            |
+| `COLOR_MODE`        | `GrayScale`   | Color processing (`GrayScale` or `TrueColor`)              |
+| `GRAYSCALE_DEPTH`   | `8`           | Bit depth for grayscale (1, 4, 8)                         |
+| `DITHER`            | `true`        | Apply dithering for better e-ink display                   |
+| `DITHER_ALGO`       | `Riemersma`   | Dithering algorithm (`Riemersma`, `FloydSteinberg`, `None`) |
+| `REMOVE_GAMMA`      | `true`        | Remove gamma correction (recommended for e-ink)            |
+| `CONTRAST`          | `1.2`         | Contrast multiplier                                        |
+| `SATURATION`        | `0.8`         | Saturation multiplier                                      |
+| `BLACK_LEVEL`       | `10%`         | Black point percentage                                     |
+| `WHITE_LEVEL`       | `95%`         | White point percentage                                     |
+
+### MQTT Integration
+
+| Environment Variable | Example Value      | Description                    |
+|---------------------|-------------------|--------------------------------|
+| `MQTT_HOST`         | `core-mosquitto`  | MQTT broker hostname           |
+| `MQTT_PORT`         | `1883`            | MQTT broker port               |
+| `MQTT_USER`         | `homeassistant`   | MQTT username                  |
+| `MQTT_PASSWORD`     | `your-password`   | MQTT password                  |
+| `MQTT_PROTOCOL`     | `4`               | MQTT protocol version (4 or 5) |
+
+### Battery Monitoring
+
+| Environment Variable  | Example Value           | Description                                               |
+|----------------------|------------------------|-----------------------------------------------------------|
+| `HA_BATTERY_WEBHOOK` | `set_kindle_battery`   | Webhook name for battery level updates                    |
+
+For multiple devices, use `HA_BATTERY_WEBHOOK_2`, `HA_BATTERY_WEBHOOK_3`, etc.
+
+### Multi-Page Support
+
+Create multiple dashboard views by adding numbered environment variables:
+
+```yaml
+HA_SCREENSHOT_URL: "/lovelace/main?kiosk"
+HA_SCREENSHOT_URL_2: "/lovelace/weather?kiosk"  
+HA_SCREENSHOT_URL_3: "/lovelace/security?kiosk"
+ROTATION_2: "90"                                # Page 2 specific rotation
+SCALING_3: "1.2"                               # Page 3 specific scaling
 ```
 
-#### Patch for [HASS Lovelace Kindle 4 extension](https://github.com/sibbl/hass-lovelace-kindle-4/)
+## Device Setup & Battery Monitoring
 
-Modify the following lines in the HASS Lovelace Kindle 4 extension's [`script.sh`](https://github.com/sibbl/hass-lovelace-kindle-4/blob/main/extensions/homeassistant/script.sh#L133) (absolute path on device should be `/mnt/us/extensions/homeassistant/script.sh`):
+### MQTT Device Tracking
 
-```diff
-...
-- DOWNLOADRESULT=$(wget -q "$IMAGE_URI" -O $TMPFILE)
-+ DOWNLOADRESULT=$(wget -q "$IMAGE_URI?batteryLevel=$CHECKBATTERY&isCharging=$IS_CHARGING" -O $TMPFILE)
-...
+Your e-ink device can be tracked in Home Assistant using MQTT sensors. See `extras/mqtt_sensors.yaml` for ready-to-use sensor configurations.
+
+**Device requests should include an ID parameter:**
+```
+http://your-server:5000/?id=kitchen_display&battery=85&charging=false
 ```
 
-### Advanced configuration
+### Battery Level Integration
 
-Some advanced variables for local usage which shouldn't be necessary when using Docker:
+To enable battery monitoring:
 
-- `OUTPUT_PATH=./output` (destination of rendered image, without extension. `OUTPUT_2`, `OUTPUT_3`, ... is also supported)
-- `PORT=5000` (port of server, which returns the last image)
-- `USE_IMAGE_MAGICK=false` (use ImageMagick instead of GraphicsMagick)
-- `UNSAFE_IGNORE_CERTIFICATE_ERRORS=true` (ignore certificate errors of e.g. self-signed certificates at your own risk)
+1. **Configure the webhook** in Home Assistant (see `extras/battery_sensor_blueprint.yaml`)
+2. **Set the webhook name** in `HA_BATTERY_WEBHOOK`
+3. **Modify your device** to send battery parameters (see patches below)
+
+#### Kindle Online Screensaver Patch
+
+Modify `/mnt/us/extensions/onlinescreensaver/bin/update.sh`:
+
+```bash
+# Add before the wget command:
+batteryLevel=`/usr/bin/powerd_test -s | awk -F: '/Battery Level/ {print substr($2, 0, length($2)-1) - 0}'`
+isCharging=`/usr/bin/powerd_test -s | awk -F: '/Charging/ {print substr($2,2,length($2))}'`
+
+# Modify the wget line:
+if wget -q "$IMAGE_URI?batteryLevel=$batteryLevel&isCharging=$isCharging" -O $TMPFILE; then
+```
+
+## Additional Resources
+
+- **📋 MQTT Sensors**: `extras/mqtt_sensors.yaml` - Copy-paste sensor configs
+- **🔋 Battery Blueprint**: `extras/battery_sensor_blueprint.yaml` - HA automation template  
+- **🎨 E-ink Theme**: `extras/lovelace-eink-theme.yml` - Optimized HA theme
+- **📖 Detailed Setup**: `extras/README.md` - Complete usage guide
+
+## Development
+
+The `development/` directory contains the core application for local development and testing:
+
+```bash
+cd development/
+npm install
+node index.js
+```
+
+## Troubleshooting
+
+### Common Issues
+
+- **Addon not appearing**: Ensure repository structure has `inkplate-dashboard/config.yaml`
+- **Blank images**: Check HA access token and URL accessibility  
+- **MQTT not working**: Verify broker settings and credentials
+- **Font rendering issues**: Check font configuration in `inkplate-dashboard/fonts/`
+
+### Advanced Configuration
+
+```yaml
+# Ignore SSL certificate errors (use at your own risk)
+UNSAFE_IGNORE_CERTIFICATE_ERRORS: true
+
+# Custom output path
+OUTPUT_PATH: "/custom/path"
+
+# Extended timeouts
+RENDERING_TIMEOUT: 30000
+BROWSER_LAUNCH_TIMEOUT: 60000
+```
+
+## Support & Contributing
+
+- 🐛 **Issues**: [GitHub Issues](https://github.com/cromulus/hass-lovelace-inkplate-dashboard/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/cromulus/hass-lovelace-inkplate-dashboard/discussions)  
+- 🔧 **Pull Requests**: Welcome! Please read contributing guidelines
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
