@@ -194,15 +194,14 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
       "--no-sandbox",
       `--lang=${config.language}`,
       config.ignoreCertificateErrors && "--ignore-certificate-errors",
-      // Enhanced rendering flags for better e-ink quality
-      "--disable-gpu",
-      "--disable-lcd-text",
-      "--disable-font-subpixel-positioning",
-      "--font-render-hinting=none",
-      "--blink-settings=fontAntialiasing=none",
-      "--force-device-scale-factor=1",
-      "--high-dpi-support=1",
-      "--force-color-profile=srgb"
+      // Enhanced rendering flags for pixel-perfect e-ink quality
+      "--high-dpi-support=0",                    // Disable OS-level scaling (key for sharpness)
+      "--force-device-scale-factor=1",           // 1 CSS pixel = 1 bitmap pixel
+      "--disable-gpu",                           // CPU rendering for determinism
+      "--disable-lcd-text",                      // No color-fringe sub-pixel AA
+      "--disable-font-subpixel-positioning",     // Snap glyphs to whole pixels
+      "--font-render-hinting=none",              // No greyscale hinting
+      "--blink-settings=fontAntialiasing=none"   // Razor-sharp text edges
     ].filter((x) => x),
     defaultViewport: null,
     timeout: config.browserLaunchTimeout,

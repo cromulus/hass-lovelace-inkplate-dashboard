@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.1.5
+
+### Enhanced
+* **Browser Optimization**: Optimized Chromium launch flags for pixel-perfect e-ink rendering
+* **Flag Organization**: Reorganized and documented browser flags with clear explanations for e-ink optimization
+* **Rendering Quality**: Removed irrelevant color profile flag, prioritized critical sharpness flags
+* **Comments**: Added detailed inline documentation for each rendering flag and its impact on e-ink displays
+
+## 1.1.4
+
+### Added
+* **MQTT Integration**: Full MQTT support using Home Assistant Services API (automatic credential management, no user configuration needed)
+* **Device Tracking**: Device refresh count tracking with MQTT publishing to `inkplate-dashboard/{deviceId}/refresh` topics
+* **Battery Monitoring**: Enhanced battery status publishing to MQTT topics `inkplate-dashboard/{deviceId}/battery` and `inkplate-dashboard/{deviceId}/charging`
+* **Debug Endpoints**: New `/debug/refreshes` and `/debug/requests` endpoints for monitoring device activity
+* **Health Check**: Enhanced `/health` endpoint with MQTT connection status and device count
+* **Request Logging**: In-memory request logging with device identification, battery levels, and refresh types
+* **ImageMagick Validation**: Startup check to ensure ImageMagick is available before starting
+
+### Fixed
+* **Authentication**: Simplified and more reliable authentication approach matching proven working implementation
+* **Puppeteer Compatibility**: Better handling of different Puppeteer versions with `waitForTimeout` method compatibility
+* **Error Handling**: Improved error handling preventing ImageMagick crashes when screenshots fail
+* **CronJob**: Fixed cronJob string conversion issue that could cause startup failures
+* **File Safety**: Added input file existence checks before ImageMagick processing
+* **Cleanup**: Better temporary file cleanup with error handling
+
+### Enhanced
+* **MQTT Topics**: Structured MQTT topic hierarchy for better Home Assistant integration
+* **HTTP Caching**: Proper ETags, Last-Modified headers, and 304 Not Modified responses
+* **Logging**: Enhanced server logs with device activity, battery status, and refresh type information
+* **Error Messages**: Improved error messages with full command output for better debugging
+
 ## 1.1.0
 
 ### Added
