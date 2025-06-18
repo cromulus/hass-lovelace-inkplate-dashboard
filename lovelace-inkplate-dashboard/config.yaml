@@ -1,5 +1,5 @@
 name: Lovelace Inkplate Dashboard
-version: "1.1.0"
+version: "1.1.1"
 slug: lovelace-inkplate-dashboard
 description: This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device. It regularly takes a screenshot which can be polled and used as a screensaver image.
 startup: application

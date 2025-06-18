@@ -1,6 +1,6 @@
 # Node.js dependencies
 development/node_modules/
-inkplate-dashboard/node_modules/
+lovelace-inkplate-dashboard/node_modules/
 
 # IDE files
 .vscode/
