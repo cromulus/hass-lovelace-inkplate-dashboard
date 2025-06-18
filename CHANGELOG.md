@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.8
+
+### Fixed
+* **Puppeteer Compatibility**: Fixed "Execution context was destroyed" error with Puppeteer 24.x by adding robust retry logic for localStorage authentication setup
+* **Browser Stability**: Simplified browser launch arguments to prevent navigation context issues with newer Puppeteer versions
+* **Error Handling**: Enhanced error handling for authentication failures with graceful fallback and retry mechanism
+* **Rendering Optimization**: Simplified CSS styling to reduce potential rendering conflicts and improve stability
+
 ## 1.1.6
 
 ### Fixed

@@ -193,16 +193,7 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
       "--disable-dev-shm-usage",
       "--no-sandbox",
       `--lang=${config.language}`,
-      config.ignoreCertificateErrors && "--ignore-certificate-errors",
-      // Enhanced rendering flags for pixel-perfect e-ink quality
-      "--high-dpi-support=0",                    // Disable OS-level scaling (key for sharpness)
-      "--force-device-scale-factor=1",           // 1 CSS pixel = 1 bitmap pixel
-      "--disable-gpu",                           // CPU rendering for determinism
-      "--disable-lcd-text",                      // No color-fringe sub-pixel AA
-      "--disable-font-subpixel-positioning",     // Snap glyphs to whole pixels
-      "--font-render-hinting=none",              // No greyscale hinting
-      "--blink-settings=fontAntialiasing=none",  // Razor-sharp text edges
-      "--force-color-profile=srgb"               // Consistent color handling for color e-ink panels
+      config.ignoreCertificateErrors && "--ignore-certificate-errors"
     ].filter((x) => x),
     defaultViewport: null,
     timeout: config.browserLaunchTimeout,
@@ -211,10 +202,7 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
 
   console.log(`Visiting '${config.baseUrl}' to login...`);
   let page = await browser.newPage();
-  await page.goto(config.baseUrl, {
-    timeout: config.renderingTimeout
-  });
-
+  
   const hassTokens = {
     hassUrl: config.baseUrl,
     access_token: config.accessToken,
@@ -222,16 +210,60 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
   };
 
   console.log("Adding authentication entry to browser's local storage...");
-  await page.evaluate(
-    (hassTokens, selectedLanguage) => {
-      localStorage.setItem("hassTokens", hassTokens);
-      localStorage.setItem("selectedLanguage", selectedLanguage);
-    },
-    JSON.stringify(hassTokens),
-    JSON.stringify(config.language)
-  );
+  
+  // Retry logic for setting localStorage
+  let authSuccess = false;
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  while (!authSuccess && retryCount < maxRetries) {
+    try {
+      await page.goto(config.baseUrl, {
+        timeout: config.renderingTimeout,
+        waitUntil: 'domcontentloaded'
+      });
+      
+      // Wait a bit for the page to stabilize
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      await page.evaluate(
+        (hassTokens, selectedLanguage) => {
+          localStorage.setItem("hassTokens", hassTokens);
+          localStorage.setItem("selectedLanguage", selectedLanguage);
+        },
+        JSON.stringify(hassTokens),
+        JSON.stringify(config.language)
+      );
+      
+      authSuccess = true;
+      console.log("Successfully added authentication to localStorage");
+    } catch (error) {
+      retryCount++;
+      console.warn(`Attempt ${retryCount} failed to set localStorage:`, error.message);
+      
+      if (retryCount < maxRetries) {
+        console.log(`Retrying in 2 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Create a new page if the current one is broken
+        try {
+          await page.close();
+        } catch (e) {
+          // Ignore close errors
+        }
+        page = await browser.newPage();
+      } else {
+        console.error("Failed to set localStorage after all retries. Continuing anyway...");
+        // Don't throw - continue with the application
+      }
+    }
+  }
 
-  page.close();
+  try {
+    await page.close();
+  } catch (e) {
+    // Ignore close errors
+  }
 
   if (config.debug) {
     console.log(
@@ -486,24 +518,11 @@ async function renderUrlToImageAsync(browser, pageConfig, url, path) {
         body {
           zoom: ${pageConfig.scaling * 100}%;
           overflow: hidden;
-        }
-        html, body {
-          -webkit-font-smoothing: none;
-          font-smooth: never;
-          text-rendering: geometricPrecision;
-        }
-        img, canvas, video {
-          image-rendering: pixelated;
-          image-rendering: crisp-edges;
         }`
     });
 
     if (pageConfig.renderingDelay > 0) {
-      if (typeof page.waitForTimeout === 'function') {
-        await page.waitForTimeout(pageConfig.renderingDelay);
-      } else {
-        await new Promise(resolve => setTimeout(resolve, pageConfig.renderingDelay));
-      }
+      await new Promise(resolve => setTimeout(resolve, pageConfig.renderingDelay));
     }
     
     await page.screenshot({
