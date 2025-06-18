@@ -201,7 +201,8 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
       "--disable-lcd-text",                      // No color-fringe sub-pixel AA
       "--disable-font-subpixel-positioning",     // Snap glyphs to whole pixels
       "--font-render-hinting=none",              // No greyscale hinting
-      "--blink-settings=fontAntialiasing=none"   // Razor-sharp text edges
+      "--blink-settings=fontAntialiasing=none",  // Razor-sharp text edges
+      "--force-color-profile=srgb"               // Consistent color handling for color e-ink panels
     ].filter((x) => x),
     defaultViewport: null,
     timeout: config.browserLaunchTimeout,
@@ -241,8 +242,8 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
     console.log("Starting first render...");
     await renderAndConvertAsync(browser);
     console.log("Starting rendering cronjob...");
-    new CronJob({
-      cronTime: String(config.cronJob),
+    const job = CronJob.from({
+      cronTime: config.cronJob,
       onTick: () => renderAndConvertAsync(browser),
       start: true
     });

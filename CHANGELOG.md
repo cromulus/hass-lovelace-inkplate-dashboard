@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.6
+
+### Fixed
+* **CronJob Compatibility**: Fixed TypeError with cron library v3.2.0+ by using `CronJob.from()` static method instead of object-style constructor
+* **Library Compatibility**: Updated cron job initialization to be compatible with newer cron library versions that deprecated object-first constructor pattern
+
 ## 1.1.5
 
 ### Enhanced
