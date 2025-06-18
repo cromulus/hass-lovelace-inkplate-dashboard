@@ -46,7 +46,7 @@ options:
   DITHER_ALGO: 'Riemersma'
   BLACK_LEVEL: '0%'
   WHITE_LEVEL: '100%'
-
+  ADDITIONAL_ENV_VARS: []
   MQTT_HOST: 'core-mosquitto'
   MQTT_PORT: 1883
   MQTT_USER: 'homeassistant'
@@ -77,6 +77,9 @@ schema:
   DITHER_ALGO: "list(Riemersma|FloydSteinberg|None)?"
   BLACK_LEVEL: str?
   WHITE_LEVEL: str?
+  ADDITIONAL_ENV_VARS:
+    - name: str
+      value: str
   MQTT_HOST: str?
   MQTT_PORT: int?
   MQTT_USER: str?
