@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+* **Comprehensive Documentation**: Added detailed DOCS.md with complete configuration guide, e-ink optimization tips, and troubleshooting
+* **E-ink Optimization Guide**: Specific solutions for common e-ink display issues (washed out images, tiny text, poor contrast)
+* **Display-Specific Recommendations**: Optimized settings for Inkplate 6, Inkplate 10, and Kindle devices
+* **Configuration Reference**: Complete table of all available options with descriptions and defaults
+* **Troubleshooting Section**: Step-by-step solutions for image quality, rendering, and layout problems
+* **Best Practices Checklist**: 7-point optimization guide for e-ink displays
+* **Advanced Configuration Examples**: Multiple dashboards, custom scheduling, and performance tuning
+
 ## 1.1.9
 
 ### Fixed

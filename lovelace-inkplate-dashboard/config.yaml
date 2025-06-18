@@ -1,5 +1,5 @@
 name: Lovelace Inkplate Dashboard
-version: "1.1.9"
+version: "1.2.0"
 slug: lovelace-inkplate-dashboard
 description: This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device. It regularly takes a screenshot which can be polled and used as a screensaver image.
 homeassistant: "2024.1.0"
@@ -45,7 +45,6 @@ options:
   WHITE_LEVEL: '100%'
   USE_IMAGE_MAGICK: true
   DEBUG: false
-  PORT: 5000
   UNSAFE_IGNORE_CERTIFICATE_ERRORS: false
   ADDITIONAL_ENV_VARS: []
 schema:
@@ -75,7 +74,6 @@ schema:
   WHITE_LEVEL: str?
   USE_IMAGE_MAGICK: bool?
   DEBUG: bool?
-  PORT: int?
   UNSAFE_IGNORE_CERTIFICATE_ERRORS: bool?
   ADDITIONAL_ENV_VARS:
     - name: str
