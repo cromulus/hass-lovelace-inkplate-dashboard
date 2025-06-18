@@ -49,6 +49,7 @@ RUN \
         imagemagick \
         nodejs \
         npm \
+        curl \
     && npm install -g npm@latest \
     && rm -rf /var/cache/apk/* \
     && rm -rf /tmp/*
@@ -72,5 +73,9 @@ RUN npm ci --only=production --ignore-scripts && npm cache clean --force
 COPY *.js ./
 COPY run.sh /
 RUN chmod a+x /run.sh
+
+# Health check to replace obsolete watchdog
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:5000/health || exit 1
 
 CMD [ "/run.sh" ]

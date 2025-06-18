@@ -1,9 +1,7 @@
 name: Lovelace Inkplate Dashboard
-version: "1.1.5"
+version: "dev"
 slug: lovelace-inkplate-dashboard
 description: This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device. It regularly takes a screenshot which can be polled and used as a screensaver image.
-startup: application
-boot: auto
 homeassistant: "2024.1.0"
 arch:
   - aarch64
@@ -11,7 +9,6 @@ arch:
   - armv7
 url: 'https://github.com/cromulus/hass-lovelace-inkplate-dashboard'
 image: 'ghcr.io/cromulus/lovelace-inkplate-dashboard/{arch}'
-webui: 'http://[HOST]:[PORT:5000]'
 ingress: true
 ingress_port: 5000
 ports:
@@ -20,7 +17,6 @@ ports_description:
   5000/tcp: 'Node Webserver hosting rendered image'
 map:
   - media:rw
-watchdog: 'http://[HOST]:[PORT:5000]/'
 init: false
 options:
   HA_BASE_URL: 'https://your-path-to-home-assistant:8123'
