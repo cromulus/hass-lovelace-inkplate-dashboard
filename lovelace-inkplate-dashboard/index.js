@@ -24,14 +24,19 @@ let mqttClient = null;
 
 function setupMqttClient() {
   // Check if MQTT service is available (provided by Home Assistant Supervisor)
-  if (!process.env.MQTT_HOST || !process.env.MQTT_USERNAME || !process.env.MQTT_PASSWORD) {
+  // Try both MQTT_USERNAME and MQTT_USER as different versions may use different names
+  const mqttUsername = process.env.MQTT_USERNAME || process.env.MQTT_USER;
+  
+  if (!process.env.MQTT_HOST || !mqttUsername || !process.env.MQTT_PASSWORD) {
     console.log('MQTT service not available from Supervisor, running without MQTT support');
     console.log('Available MQTT env vars:', {
       host: !!process.env.MQTT_HOST,
       username: !!process.env.MQTT_USERNAME,
+      user: !!process.env.MQTT_USER,
       password: !!process.env.MQTT_PASSWORD,
       port: !!process.env.MQTT_PORT,
-      protocol: !!process.env.MQTT_PROTOCOL
+      protocol: !!process.env.MQTT_PROTOCOL,
+      ssl: !!process.env.MQTT_SSL
     });
     return;
   }
@@ -39,7 +44,7 @@ function setupMqttClient() {
   const mqttOptions = {
     host: process.env.MQTT_HOST,
     port: parseInt(process.env.MQTT_PORT) || 1883,
-    username: process.env.MQTT_USERNAME,
+    username: mqttUsername,
     password: process.env.MQTT_PASSWORD,
     protocol: 'mqtt',
     protocolVersion: process.env.MQTT_PROTOCOL === '5' ? 5 : 4,
@@ -168,6 +173,17 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
     }
   }
 
+  // Check if ImageMagick is available
+  try {
+    const magickCommand = config.useImageMagick ? 'magick' : 'convert';
+    await execa(magickCommand, ['-version']);
+    console.log(`ImageMagick ${config.useImageMagick ? '(magick)' : '(convert)'} is available`);
+  } catch (error) {
+    console.error('ImageMagick not found! Please ensure ImageMagick is installed.');
+    console.error('Error:', error.message);
+    process.exit(1);
+  }
+
   // Setup MQTT client
   setupMqttClient();
 
@@ -195,51 +211,27 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
 
   console.log(`Visiting '${config.baseUrl}' to login...`);
   let page = await browser.newPage();
-  
-  try {
-    await page.goto(config.baseUrl, {
-      timeout: config.renderingTimeout,
-      waitUntil: 'domcontentloaded'
-    });
+  await page.goto(config.baseUrl, {
+    timeout: config.renderingTimeout
+  });
 
-    // Wait a moment for the page to stabilize
-    await page.waitForTimeout(2000);
+  const hassTokens = {
+    hassUrl: config.baseUrl,
+    access_token: config.accessToken,
+    token_type: "Bearer"
+  };
 
-    const hassTokens = {
-      hassUrl: config.baseUrl,
-      access_token: config.accessToken,
-      token_type: "Bearer"
-    };
-
-    console.log("Adding authentication entry to browser's local storage...");
-    
-    // Use a more robust approach to set localStorage
-    await page.evaluateOnNewDocument((hassTokens, selectedLanguage) => {
+  console.log("Adding authentication entry to browser's local storage...");
+  await page.evaluate(
+    (hassTokens, selectedLanguage) => {
       localStorage.setItem("hassTokens", hassTokens);
       localStorage.setItem("selectedLanguage", selectedLanguage);
-    }, JSON.stringify(hassTokens), JSON.stringify(config.language));
-    
-    // Also set it on the current page with error handling
-    try {
-      await page.evaluate(
-        (hassTokens, selectedLanguage) => {
-          localStorage.setItem("hassTokens", hassTokens);
-          localStorage.setItem("selectedLanguage", selectedLanguage);
-        },
-        JSON.stringify(hassTokens),
-        JSON.stringify(config.language)
-      );
-    } catch (evalError) {
-      console.warn("Failed to set localStorage on current page (navigation in progress):", evalError.message);
-      // Continue anyway - the evaluateOnNewDocument should handle future page loads
-    }
+    },
+    JSON.stringify(hassTokens),
+    JSON.stringify(config.language)
+  );
 
-  } catch (error) {
-    console.error("Error during initial page setup:", error);
-    console.log("Continuing with rendering - authentication may be handled differently...");
-  }
-
-  await page.close();
+  page.close();
 
   if (config.debug) {
     console.log(
@@ -250,7 +242,6 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
     console.log("Starting first render...");
     await renderAndConvertAsync(browser);
     console.log("Starting rendering cronjob...");
-    console.log("CronJob value:", config.cronJob, "Type:", typeof config.cronJob);
     new CronJob({
       cronTime: String(config.cronJob),
       onTick: () => renderAndConvertAsync(browser),
@@ -431,17 +422,27 @@ async function renderAndConvertAsync(browser) {
     const tempPath = outputPath + ".temp";
 
     console.log(`Rendering ${url} to image...`);
-    await renderUrlToImageAsync(browser, pageConfig, url, tempPath);
+    const renderSuccess = await renderUrlToImageAsync(browser, pageConfig, url, tempPath);
 
-    console.log(`Converting rendered screenshot of ${url} to grayscale...`);
-    await convertImageToKindleCompatiblePngAsync(
-      pageConfig,
-      tempPath,
-      outputPath
-    );
-
-    fs.unlink(tempPath);
-    console.log(`Finished ${url}`);
+    if (renderSuccess) {
+      console.log(`Converting rendered screenshot of ${url} to grayscale...`);
+      await convertImageToKindleCompatiblePngAsync(
+        pageConfig,
+        tempPath,
+        outputPath
+      );
+      
+      // Clean up temp file
+      try {
+        await fs.unlink(tempPath);
+      } catch (e) {
+        console.warn(`Could not delete temp file ${tempPath}:`, e.message);
+      }
+      
+      console.log(`Finished ${url}`);
+    } else {
+      console.error(`Failed to render ${url}, skipping image conversion`);
+    }
   }
 }
 
@@ -498,8 +499,13 @@ async function renderUrlToImageAsync(browser, pageConfig, url, path) {
     });
 
     if (pageConfig.renderingDelay > 0) {
-      await page.waitForTimeout(pageConfig.renderingDelay);
+      if (typeof page.waitForTimeout === 'function') {
+        await page.waitForTimeout(pageConfig.renderingDelay);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, pageConfig.renderingDelay));
+      }
     }
+    
     await page.screenshot({
       path,
       type: 'png', // Always use PNG for screenshot
@@ -510,10 +516,14 @@ async function renderUrlToImageAsync(browser, pageConfig, url, path) {
         ...size
       }
     });
+    
+    // Return success if we got here
+    return true;
   } catch (e) {
     console.error("Failed to render", e);
+    return false;
   } finally {
-    if (config.debug === false) {
+    if (config.debug === false && page) {
       await page.close();
     }
   }
@@ -551,6 +561,13 @@ async function ensurePalette(depth) {
 }
 
 async function convertImageToKindleCompatiblePngAsync(pageCfg, input, output) {
+  // Check if input file exists
+  try {
+    await fs.access(input);
+  } catch (error) {
+    throw new Error(`Input file ${input} does not exist or is not readable`);
+  }
+
   const depth = Number(pageCfg.grayscaleDepth);      // 1‒4 or 8
   const pal = depth < 8 ? await ensurePalette(depth) : null;
   const ditherAlgo = pageCfg.ditherAlgo || "Riemersma";
@@ -602,6 +619,15 @@ async function convertImageToKindleCompatiblePngAsync(pageCfg, input, output) {
     output
   );
 
-  // Execute ImageMagick command
-  await execa(magickCommand, args);
+  // Execute ImageMagick command with better error handling
+  try {
+    await execa(magickCommand, args);
+  } catch (error) {
+    console.error(`ImageMagick command failed: ${magickCommand} ${args.join(' ')}`);
+    console.error(`Error: ${error.message}`);
+    if (error.stderr) {
+      console.error(`stderr: ${error.stderr}`);
+    }
+    throw error;
+  }
 }
