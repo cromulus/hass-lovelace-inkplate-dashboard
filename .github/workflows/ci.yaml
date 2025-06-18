@@ -110,8 +110,13 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           context: lovelace-inkplate-dashboard
           file: lovelace-inkplate-dashboard/Dockerfile
-          cache-from: type=gha,scope=build-${{ matrix.architecture }}
-          cache-to: type=gha,scope=build-${{ matrix.architecture }},mode=max
+          cache-from: |
+            type=gha,scope=${{ github.ref_name }}-${{ matrix.architecture }}
+            type=gha,scope=refs/heads/main-${{ matrix.architecture }}
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}-cache:${{ matrix.architecture }}
+          cache-to: |
+            type=gha,scope=${{ github.ref_name }}-${{ matrix.architecture }},mode=max
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}-cache:${{ matrix.architecture }},mode=max
           platforms: ${{ steps.flags.outputs.platform }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}/${{ matrix.architecture }}:${{ needs.information.outputs.version }}
