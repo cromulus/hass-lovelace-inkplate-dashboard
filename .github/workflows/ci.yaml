@@ -83,15 +83,18 @@ jobs:
         id: flags
         run: |
           echo "date=$(date +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_OUTPUT
+          
+          # Extract BUILD_FROM from build.yaml with error checking
           from=$(yq --no-colors eval ".build_from.${{ matrix.architecture }}" "./lovelace-inkplate-dashboard/build.yaml")
+          if [[ "$from" == "null" || -z "$from" ]]; then
+            echo "::error ::No build_from defined for architecture ${{ matrix.architecture }} in build.yaml"
+            echo "Available architectures: $(yq --no-colors eval '.build_from | keys | join(", ")' "./lovelace-inkplate-dashboard/build.yaml")"
+            exit 1
+          fi
           echo "from=${from}" >> $GITHUB_OUTPUT
 
           if [[ "${{ matrix.architecture}}" = "amd64" ]]; then
             echo "platform=linux/amd64" >> $GITHUB_OUTPUT
-          elif [[ "${{ matrix.architecture }}" = "i386" ]]; then
-            echo "platform=linux/386" >> $GITHUB_OUTPUT
-          elif [[ "${{ matrix.architecture }}" = "armhf" ]]; then
-            echo "platform=linux/arm/v6" >> $GITHUB_OUTPUT
           elif [[ "${{ matrix.architecture }}" = "armv7" ]]; then
             echo "platform=linux/arm/v7" >> $GITHUB_OUTPUT
           elif [[ "${{ matrix.architecture }}" = "aarch64" ]]; then
