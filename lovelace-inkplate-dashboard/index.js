@@ -40,6 +40,26 @@ function setupMqttClient() {
     MQTT_SSL: process.env.MQTT_SSL || 'undefined'
   });
   
+  // Debug: Log ALL environment variables that might be MQTT-related
+  const mqttEnvVars = Object.keys(process.env).filter(key => 
+    key.includes('MQTT') || key.includes('mqtt') || key.includes('BROKER') || key.includes('broker')
+  );
+  console.log('All MQTT-related environment variables found:', mqttEnvVars.length > 0 ? mqttEnvVars : 'NONE');
+  
+  // Debug: Log a sample of all environment variables to see what's available
+  console.log('Sample of all environment variables:');
+  const allEnvKeys = Object.keys(process.env);
+  console.log(`Total environment variables: ${allEnvKeys.length}`);
+  console.log('First 20 env vars:', allEnvKeys.slice(0, 20));
+  
+  // Check for any variables that look like they might be service-related
+  const serviceEnvVars = Object.keys(process.env).filter(key => 
+    key.includes('SERVICE') || key.includes('service') || key.includes('ADDON') || key.includes('addon')
+  );
+  if (serviceEnvVars.length > 0) {
+    console.log('Service-related environment variables:', serviceEnvVars);
+  }
+  
   // Check for null, undefined, or empty string values
   if (!mqttHost || mqttHost === 'null' || !mqttUsername || mqttUsername === 'null' || !mqttPassword || mqttPassword === 'null') {
     console.log('MQTT service not available from Supervisor, running without MQTT support');
