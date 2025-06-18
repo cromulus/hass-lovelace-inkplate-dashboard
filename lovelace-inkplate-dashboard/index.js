@@ -23,19 +23,26 @@ const MAX_REFRESH_HISTORY = 1000;
 let mqttClient = null;
 
 function setupMqttClient() {
-  // Check if MQTT is configured
-  if (!process.env.MQTT_PASSWORD) {
-    console.log('MQTT_PASSWORD not configured, running without MQTT support');
+  // Check if MQTT service is available (provided by Home Assistant Supervisor)
+  if (!process.env.MQTT_HOST || !process.env.MQTT_USERNAME || !process.env.MQTT_PASSWORD) {
+    console.log('MQTT service not available from Supervisor, running without MQTT support');
+    console.log('Available MQTT env vars:', {
+      host: !!process.env.MQTT_HOST,
+      username: !!process.env.MQTT_USERNAME,
+      password: !!process.env.MQTT_PASSWORD,
+      port: !!process.env.MQTT_PORT,
+      protocol: !!process.env.MQTT_PROTOCOL
+    });
     return;
   }
 
   const mqttOptions = {
-    host: process.env.MQTT_HOST || 'core-mosquitto',
+    host: process.env.MQTT_HOST,
     port: parseInt(process.env.MQTT_PORT) || 1883,
-    username: process.env.MQTT_USER || 'homeassistant',
+    username: process.env.MQTT_USERNAME,
     password: process.env.MQTT_PASSWORD,
-    protocol: process.env.MQTT_PROTOCOL === '5.0' ? 'mqtt' : 'mqtt',
-    protocolVersion: process.env.MQTT_PROTOCOL === '5.0' ? 5 : 4,
+    protocol: 'mqtt',
+    protocolVersion: process.env.MQTT_PROTOCOL === '5' ? 5 : 4,
     connectTimeout: 30000,
     reconnectPeriod: 5000,
     keepalive: 60
