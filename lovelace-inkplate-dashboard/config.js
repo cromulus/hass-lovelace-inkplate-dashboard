@@ -19,13 +19,13 @@ function getPagesConfig() {
         suffix,
         `output/cover${suffix}`
       ),
-      renderingDelay: getEnvironmentVariable("RENDERING_DELAY", suffix) || 0,
+      renderingDelay: Number(getEnvironmentVariable("RENDERING_DELAY", suffix)) || 0,
       renderingScreenSize: {
         height:
-          getEnvironmentVariable("RENDERING_SCREEN_HEIGHT", suffix) || 800,
-        width: getEnvironmentVariable("RENDERING_SCREEN_WIDTH", suffix) || 600,
+          Number(getEnvironmentVariable("RENDERING_SCREEN_HEIGHT", suffix)) || 800,
+        width: Number(getEnvironmentVariable("RENDERING_SCREEN_WIDTH", suffix)) || 600,
       },
-      grayscaleDepth: getEnvironmentVariable("GRAYSCALE_DEPTH", suffix) || 8,
+      grayscaleDepth: Number(getEnvironmentVariable("GRAYSCALE_DEPTH", suffix)) || 8,
       removeGamma: getEnvironmentVariable("REMOVE_GAMMA", suffix) === "true" || false,
       blackLevel: getEnvironmentVariable("BLACK_LEVEL", suffix) || "0%",
       whiteLevel: getEnvironmentVariable("WHITE_LEVEL", suffix) || "100%",
@@ -45,8 +45,8 @@ function getPagesConfig() {
 }
 
 module.exports = {
-  baseUrl: process.env.HA_BASE_URL,
-  accessToken: process.env.HA_ACCESS_TOKEN,
+  baseUrl: process.env.HA_BASE_URL || "http://homeassistant:8123",
+  accessToken: process.env.HA_ACCESS_TOKEN || process.env.SUPERVISOR_TOKEN,
   cronJob: process.env.CRON_JOB || "* * * * *",
   useImageMagick: process.env.USE_IMAGE_MAGICK === "true",
   pages: getPagesConfig(),

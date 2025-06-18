@@ -1,5 +1,5 @@
 name: Lovelace Inkplate Dashboard
-version: "1.1.8"
+version: "1.1.9"
 slug: lovelace-inkplate-dashboard
 description: This tool can be used to display a Lovelace view of your Home Assistant instance on an e-ink device. It regularly takes a screenshot which can be polled and used as a screensaver image.
 homeassistant: "2024.1.0"
@@ -19,7 +19,7 @@ map:
   - media:rw
 init: false
 options:
-  HA_BASE_URL: 'https://your-path-to-home-assistant:8123'
+  HA_BASE_URL: ''
   HA_SCREENSHOT_URL: '/lovelace/0'
   HA_ACCESS_TOKEN: ''
   LANGUAGE: 'en'
@@ -43,11 +43,15 @@ options:
   DITHER_ALGO: 'Riemersma'
   BLACK_LEVEL: '0%'
   WHITE_LEVEL: '100%'
+  USE_IMAGE_MAGICK: true
+  DEBUG: false
+  PORT: 5000
+  UNSAFE_IGNORE_CERTIFICATE_ERRORS: false
   ADDITIONAL_ENV_VARS: []
 schema:
-  HA_BASE_URL: url
+  HA_BASE_URL: url?
   HA_SCREENSHOT_URL: str
-  HA_ACCESS_TOKEN: password
+  HA_ACCESS_TOKEN: password?
   LANGUAGE: str?
   CRON_JOB: str?
   RENDERING_TIMEOUT: int?
@@ -69,11 +73,16 @@ schema:
   DITHER_ALGO: "list(Riemersma|FloydSteinberg|None)?"
   BLACK_LEVEL: str?
   WHITE_LEVEL: str?
+  USE_IMAGE_MAGICK: bool?
+  DEBUG: bool?
+  PORT: int?
+  UNSAFE_IGNORE_CERTIFICATE_ERRORS: bool?
   ADDITIONAL_ENV_VARS:
     - name: str
       value: str
 services:
   - mqtt:need
 startup: services
+homeassistant_api: true
 environment:
   output_path: "/output/cover"

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.9
+
+### Fixed
+* **Configuration Persistence**: Fixed configuration values not persisting across add-on restarts by adding missing environment variable exports in run.sh
+* **Missing Configuration Options**: Added missing exports for SATURATION, CONTRAST, SHARPEN, DITHER, DITHER_ALGO, BLACK_LEVEL, WHITE_LEVEL to run.sh
+* **System Configuration**: Added missing exports for USE_IMAGE_MAGICK, DEBUG, PORT, UNSAFE_IGNORE_CERTIFICATE_ERRORS with proper schema definitions
+* **Numeric Conversion**: Fixed height/width and other numeric configuration values not being properly converted from strings to numbers
+* **Home Assistant API Integration**: Added automatic Home Assistant URL and token detection using supervisor API with homeassistant_api: true
+* **Configuration Flow**: Fixed complete configuration persistence flow: HA UI → options.json → bashio::config → environment variables → application
+
+### Enhanced
+* **Automatic Authentication**: HA_BASE_URL and HA_ACCESS_TOKEN now automatically detected from supervisor API when not manually configured
+* **Configuration Schema**: Made HA_BASE_URL and HA_ACCESS_TOKEN optional in schema since they can be auto-detected
+* **Type Safety**: Added proper Number() conversion for all numeric configuration values to prevent string/number type issues
+
 ## 1.1.8
 
 ### Fixed
