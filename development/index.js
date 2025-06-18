@@ -23,14 +23,25 @@ const MAX_REFRESH_HISTORY = 1000;
 let mqttClient = null;
 
 function setupMqttClient() {
+  // Check if MQTT is configured
+  if (!process.env.MQTT_PASSWORD) {
+    console.log('MQTT_PASSWORD not configured, running without MQTT support');
+    return;
+  }
+
   const mqttOptions = {
     host: process.env.MQTT_HOST || 'core-mosquitto',
     port: parseInt(process.env.MQTT_PORT) || 1883,
     username: process.env.MQTT_USER || 'homeassistant',
     password: process.env.MQTT_PASSWORD,
     protocol: process.env.MQTT_PROTOCOL === '5.0' ? 'mqtt' : 'mqtt',
-    protocolVersion: process.env.MQTT_PROTOCOL === '5.0' ? 5 : 4
+    protocolVersion: process.env.MQTT_PROTOCOL === '5.0' ? 5 : 4,
+    connectTimeout: 30000,
+    reconnectPeriod: 5000,
+    keepalive: 60
   };
+
+  console.log(`Attempting MQTT connection to ${mqttOptions.host}:${mqttOptions.port} as user '${mqttOptions.username}'`);
 
   mqttClient = mqtt.connect(mqttOptions);
 
@@ -40,10 +51,15 @@ function setupMqttClient() {
 
   mqttClient.on('error', (error) => {
     console.error('MQTT connection error:', error);
+    console.log('Continuing without MQTT support...');
   });
 
   mqttClient.on('reconnect', () => {
     console.log('Reconnecting to MQTT broker...');
+  });
+
+  mqttClient.on('offline', () => {
+    console.log('MQTT client went offline');
   });
 }
 
@@ -172,27 +188,51 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
 
   console.log(`Visiting '${config.baseUrl}' to login...`);
   let page = await browser.newPage();
-  await page.goto(config.baseUrl, {
-    timeout: config.renderingTimeout
-  });
+  
+  try {
+    await page.goto(config.baseUrl, {
+      timeout: config.renderingTimeout,
+      waitUntil: 'domcontentloaded'
+    });
 
-  const hassTokens = {
-    hassUrl: config.baseUrl,
-    access_token: config.accessToken,
-    token_type: "Bearer"
-  };
+    // Wait a moment for the page to stabilize
+    await page.waitForTimeout(2000);
 
-  console.log("Adding authentication entry to browser's local storage...");
-  await page.evaluate(
-    (hassTokens, selectedLanguage) => {
+    const hassTokens = {
+      hassUrl: config.baseUrl,
+      access_token: config.accessToken,
+      token_type: "Bearer"
+    };
+
+    console.log("Adding authentication entry to browser's local storage...");
+    
+    // Use a more robust approach to set localStorage
+    await page.evaluateOnNewDocument((hassTokens, selectedLanguage) => {
       localStorage.setItem("hassTokens", hassTokens);
       localStorage.setItem("selectedLanguage", selectedLanguage);
-    },
-    JSON.stringify(hassTokens),
-    JSON.stringify(config.language)
-  );
+    }, JSON.stringify(hassTokens), JSON.stringify(config.language));
+    
+    // Also set it on the current page with error handling
+    try {
+      await page.evaluate(
+        (hassTokens, selectedLanguage) => {
+          localStorage.setItem("hassTokens", hassTokens);
+          localStorage.setItem("selectedLanguage", selectedLanguage);
+        },
+        JSON.stringify(hassTokens),
+        JSON.stringify(config.language)
+      );
+    } catch (evalError) {
+      console.warn("Failed to set localStorage on current page (navigation in progress):", evalError.message);
+      // Continue anyway - the evaluateOnNewDocument should handle future page loads
+    }
 
-  page.close();
+  } catch (error) {
+    console.error("Error during initial page setup:", error);
+    console.log("Continuing with rendering - authentication may be handled differently...");
+  }
+
+  await page.close();
 
   if (config.debug) {
     console.log(
