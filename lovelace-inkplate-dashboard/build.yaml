@@ -1,0 +1,11 @@
+build_from:
+  aarch64: "ghcr.io/home-assistant/aarch64-base:latest"
+  amd64: "ghcr.io/home-assistant/amd64-base:latest"
+  armv7: "ghcr.io/home-assistant/armv7-base:latest"
+labels:
+  org.opencontainers.image.title: "Lovelace Inkplate Dashboard"
+  org.opencontainers.image.description: "Display Home Assistant Lovelace views on e-ink devices"
+  org.opencontainers.image.source: "https://github.com/cromulus/hass-lovelace-inkplate-dashboard"
+  org.opencontainers.image.licenses: "MIT"
+args:
+  TEMPIO_VERSION: "2021.09.0" 

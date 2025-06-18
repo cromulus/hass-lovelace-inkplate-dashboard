@@ -1,38 +1,145 @@
-name: ci
+name: "CI/CD Pipeline"
 
 on:
+  pull_request:
+    branches: ["main"]
   push:
-    branches:
-      - 'main'
+    branches: ["main"]
+  release:
+    types: ["published"]
+  schedule:
+    - cron: "0 2 * * 0"
+
+env:
+  DEFAULT_PYTHON: "3.11"
+
 jobs:
+  information:
+    if: |
+      github.event_name == 'schedule'
+      || (
+        contains(github.event.head_commit.message, '[ci skip]') == false
+        && contains(github.event.head_commit.message, '[skip ci]') == false
+      )
+    name: ℹ️ Gather add-on information
+    runs-on: ubuntu-latest
+    outputs:
+      architectures: ${{ steps.information.outputs.architectures }}
+      build: ${{ steps.information.outputs.build }}
+      description: ${{ steps.information.outputs.description }}
+      name: ${{ steps.information.outputs.name }}
+      slug: ${{ steps.information.outputs.slug }}
+      target: ${{ steps.information.outputs.target }}
+      version: ${{ steps.information.outputs.version }}
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v4
+      - name: 🚀 Run add-on information action
+        id: information
+        uses: frenck/action-addon-information@v1.4.2
+        with:
+          path: "./lovelace-inkplate-dashboard"
+
+  lint-addon:
+    name: 🧹 Add-on Lint
+    needs: information
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v4
+      - name: 🚀 Run Add-on Lint
+        uses: frenck/action-addon-linter@v2.15.1
+        with:
+          community: true
+          path: "./lovelace-inkplate-dashboard"
+
   build:
+    name: 👷 ${{ github.event_name == 'pull_request' && 'Build' || 'Build & Publish' }} ${{ matrix.architecture }}
+    needs: [information, lint-addon]
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        arch: ['amd64', 'aarch64', 'armv7']
+        architecture: ${{ fromJson(needs.information.outputs.architectures) }}
     steps:
-      - name: Checkout repository
+      - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v4
-      - name: Extract package version
-        run: echo "PACKAGE_VERSION=$(node -p 'require("./lovelace-inkplate-dashboard/package.json").version')" >> $GITHUB_ENV
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
+
+      - name: 🏗 Set up build cache
+        id: cache
+        uses: actions/cache@v4.0.2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v5
+          path: /tmp/.docker-cache
+          key: docker-${{ matrix.architecture }}-${{ github.sha }}
+          restore-keys: |
+            docker-${{ matrix.architecture }}
+
+      - name: 🏗 Set up QEMU
+        uses: docker/setup-qemu-action@v3.0.0
+
+      - name: 🏗 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.0.0
+
+      - name: 🏗 Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3.0.0
         with:
-          context: ./lovelace-inkplate-dashboard
-          file: ./lovelace-inkplate-dashboard/Dockerfile
-          platforms: linux/${{ matrix.arch }}
-          push: true
-          tags: 
-            cromulus/hass-lovelace-inkplate-dashboard-${{ matrix.arch }}:${{ env.PACKAGE_VERSION }},
-            cromulus/hass-lovelace-inkplate-dashboard-${{ matrix.arch }}:latest
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ℹ️ Compose build flags
+        id: flags
+        run: |
+          echo "date=$(date +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_OUTPUT
+          from=$(yq --no-colors eval ".build_from.${{ matrix.architecture }}" "./lovelace-inkplate-dashboard/build.yaml")
+          echo "from=${from}" >> $GITHUB_OUTPUT
+
+          if [[ "${{ matrix.architecture}}" = "amd64" ]]; then
+            echo "platform=linux/amd64" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.architecture }}" = "i386" ]]; then
+            echo "platform=linux/386" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.architecture }}" = "armhf" ]]; then
+            echo "platform=linux/arm/v6" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.architecture }}" = "armv7" ]]; then
+            echo "platform=linux/arm/v7" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.architecture }}" = "aarch64" ]]; then
+            echo "platform=linux/arm64/v8" >> $GITHUB_OUTPUT
+          else
+            echo "::error ::Could not determine platform for architecture ${{ matrix.architecture }}"
+            exit 1
+          fi
+
+      - name: 🚀 Build ${{ github.event_name == 'pull_request' && '(Validation Only)' || 'and Publish' }}
+        uses: docker/build-push-action@v5.1.0
+        with:
+          push: ${{ github.event_name != 'pull_request' }}
+          context: lovelace-inkplate-dashboard
+          file: lovelace-inkplate-dashboard/Dockerfile
+          cache-from: |
+            type=local,src=/tmp/.docker-cache
+            type=gha,scope=build-${{ matrix.architecture }}
+          cache-to: |
+            type=local,dest=/tmp/.docker-cache-new
+            type=gha,scope=build-${{ matrix.architecture }},mode=max
+          platforms: ${{ steps.flags.outputs.platform }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}/${{ matrix.architecture }}:${{ needs.information.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}/${{ matrix.architecture }}:latest
           build-args: |
-            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base:latest 
+            BUILD_ARCH=${{ matrix.architecture }}
+            BUILD_DATE=${{ steps.flags.outputs.date }}
+            BUILD_DESCRIPTION=${{ needs.information.outputs.description }}
+            BUILD_NAME=${{ needs.information.outputs.name }}
+            BUILD_REF=${{ github.sha }}
+            BUILD_REPOSITORY=${{ github.repository }}
+            BUILD_VERSION=${{ needs.information.outputs.version }}
+            BUILD_FROM=${{ steps.flags.outputs.from }}
+
+      # Temp fix
+      # https://github.com/docker/build-push-action/issues/252
+      # https://github.com/moby/buildkit/issues/1896
+      - name: 🚚 Swap build cache
+        run: |
+          rm -rf /tmp/.docker-cache
+          mv /tmp/.docker-cache-new /tmp/.docker-cache 
