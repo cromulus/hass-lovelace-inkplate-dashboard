@@ -46,105 +46,42 @@ options:
   DITHER_ALGO: 'Riemersma'
   BLACK_LEVEL: '0%'
   WHITE_LEVEL: '100%'
-  ADDITIONAL_ENV_VARS: []
+
   MQTT_HOST: 'core-mosquitto'
   MQTT_PORT: 1883
   MQTT_USER: 'homeassistant'
   MQTT_PASSWORD: ''
   MQTT_PROTOCOL: '4'
 schema:
-  HA_BASE_URL:
-    type: url
-    description: "Base URL of your Home Assistant instance."
-  HA_SCREENSHOT_URL:
-    type: str
-    description: "Relative URL to take the screenshot of."
-  HA_ACCESS_TOKEN:
-    type: password
-    description: "Long-lived access token from Home Assistant."
-  LANGUAGE:
-    type: str?
-    description: "Language to set in the browser and Home Assistant."
-  CRON_JOB:
-    type: str?
-    description: "Cron job expression for how often to take a screenshot."
-  RENDERING_TIMEOUT:
-    type: int?
-    description: "Timeout in milliseconds for the rendering process."
-  RENDERING_DELAY:
-    type: int?
-    description: "Delay in milliseconds between navigating to the page and taking the screenshot."
-  RENDERING_SCREEN_HEIGHT:
-    type: int?
-    description: "Height of your e-ink screen resolution."
-  RENDERING_SCREEN_WIDTH:
-    type: int?
-    description: "Width of your e-ink screen resolution."
-  BROWSER_LAUNCH_TIMEOUT:
-    type: int?
-    description: "Timeout in milliseconds for launching the browser."
-  ROTATION:
-    type: int?
-    description: "Rotation of the image in degrees (e.g., 90, 180, 270)."
-  SCALING:
-    type: float?
-    description: "Scaling factor (e.g., 1.5 to zoom in)."
-  GRAYSCALE_DEPTH:
-    type: int?
-    description: "Grayscale bit depth (e.g., 8 for 8-bit, which is 256 shades of gray)."
-  IMAGE_FORMAT:
-    type: "list(png|jpeg|bmp)?"
-    description: "Format for the generated images."
-  COLOR_MODE:
-    type: "list(GrayScale|TrueColor)?"
-    description: "Color mode to use for the image."
-  REMOVE_GAMMA:
-    type: bool?
-    description: "Remove gamma correction from the image."
-  PREFERS_COLOR_SCHEME:
-    type: "list(light|dark)?"
-    description: "Enable browser dark mode."
-  SATURATION:
-    type: int?
-    description: "Saturation level multiplier."
-  CONTRAST:
-    type: int?
-    description: "Contrast level multiplier."
-  SHARPEN:
-    type: str?
-    description: "Sharpening parameters for the image."
-  DITHER:
-    type: bool?
-    description: "Apply a dither to the images."
-  DITHER_ALGO:
-    type: "list(Riemersma|FloydSteinberg|None)?"
-    description: "Dithering algorithm to use."
-  BLACK_LEVEL:
-    type: str?
-    description: "Black point as a percentage (e.g., 30%)."
-  WHITE_LEVEL:
-    type: str?
-    description: "White point as a percentage (e.g., 90%)."
-  ADDITIONAL_ENV_VARS:
-    type:
-      - name: str
-        value: str
-    description: "Additional environment variables to set."
-  MQTT_HOST:
-    type: str?
-    description: "MQTT broker hostname."
-  MQTT_PORT:
-    type: int?
-    description: "MQTT broker port."
-  MQTT_USER:
-    type: str?
-    description: "MQTT username."
-  MQTT_PASSWORD:
-    type: password?
-    description: "MQTT password."
-  MQTT_PROTOCOL:
-    type: "list(4|5.0)?"
-    description: "MQTT protocol version."
+  HA_BASE_URL: url
+  HA_SCREENSHOT_URL: str
+  HA_ACCESS_TOKEN: password
+  LANGUAGE: str?
+  CRON_JOB: str?
+  RENDERING_TIMEOUT: int?
+  RENDERING_DELAY: int?
+  RENDERING_SCREEN_HEIGHT: int?
+  RENDERING_SCREEN_WIDTH: int?
+  BROWSER_LAUNCH_TIMEOUT: int?
+  ROTATION: int?
+  SCALING: float?
+  GRAYSCALE_DEPTH: int?
+  IMAGE_FORMAT: "list(png|jpeg|bmp)?"
+  COLOR_MODE: "list(GrayScale|TrueColor)?"
+  REMOVE_GAMMA: bool?
+  PREFERS_COLOR_SCHEME: "list(light|dark)?"
+  SATURATION: int?
+  CONTRAST: int?
+  SHARPEN: str?
+  DITHER: bool?
+  DITHER_ALGO: "list(Riemersma|FloydSteinberg|None)?"
+  BLACK_LEVEL: str?
+  WHITE_LEVEL: str?
+  MQTT_HOST: str?
+  MQTT_PORT: int?
+  MQTT_USER: str?
+  MQTT_PASSWORD: password?
+  MQTT_PROTOCOL: "list(4|5.0)?"
 services:
   - mqtt:want
 environment:
