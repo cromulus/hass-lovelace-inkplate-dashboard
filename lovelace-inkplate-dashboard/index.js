@@ -243,8 +243,9 @@ function publishBatteryStatusToMqtt(deviceId, batteryData) {
     console.log("Starting first render...");
     await renderAndConvertAsync(browser);
     console.log("Starting rendering cronjob...");
+    console.log("CronJob value:", config.cronJob, "Type:", typeof config.cronJob);
     new CronJob({
-      cronTime: config.cronJob,
+      cronTime: String(config.cronJob),
       onTick: () => renderAndConvertAsync(browser),
       start: true
     });
